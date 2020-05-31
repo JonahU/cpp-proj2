@@ -7,12 +7,16 @@
 namespace proj2 { 
 
 struct parser {
+    std::unique_ptr<token_list> const& tokens;
 
+    parser(std::unique_ptr<token_list> const& _tokens) : tokens(_tokens) {
+    }
 };
 
-std::unique_ptr<parser> parsefile(std::string const& path_to_file) {
-    auto tokens = tokenize(path_to_file);
-    return std::make_unique<parser>();
+std::unique_ptr<parser> parsefile(std::ifstream& ifs) {
+    auto my_tokens = tokenize(ifs);
+    auto my_parser = std::make_unique<parser>(my_tokens);
+    return my_parser;
 }
 
 }
