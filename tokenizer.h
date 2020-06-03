@@ -12,8 +12,8 @@
 
 namespace proj2 {
 
-std::regex const keyword_regex      ("^struct|int|double|long|char|void$");
-std::regex const symbol_regex       ("^\"|'|\\(|\\)|\\{|\\}|;$"); // " ' ( ) { } ;
+std::regex const keyword_regex      ("^struct|int|long|short|double|float|char|void|std::string|std::vector|std::map|inline|include|const$");
+std::regex const symbol_regex       ("^\"|'|,|\\(|\\)|\\{|\\}|;|#|<|>|\\*|&$"); // " ' , ( ) { } ; # < > * &
 std::regex const identifier_regex   ("^[a-zA-Z_]+\\w*$");
 
 struct base_token {

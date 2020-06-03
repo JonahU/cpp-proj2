@@ -4,4 +4,4 @@ struct Rocket {
     int     number_of_engines;
 };
 
-void launch(Rocket r, char const* when, char const* where);
+inline void launch(Rocket r, char const* when, char const* where);
