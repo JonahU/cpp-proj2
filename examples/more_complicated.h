@@ -3,10 +3,10 @@
 #include <map>
 
 struct Rocket {
-    double      max_speed;
-    long        price;
-    int         number_of_engines;
-    std::string name;
+    double       max_speed;
+    long         price;
+    unsigned int number_of_engines;
+    std::string  name;
 };
 
 inline void launch(Rocket r, std::string& when, std::string& where);
