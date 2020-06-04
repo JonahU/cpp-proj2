@@ -13,7 +13,7 @@ struct parser {
     }
 };
 
-std::unique_ptr<parser> parsefile(std::ifstream& ifs) {
+inline std::unique_ptr<parser> parsefile(std::ifstream& ifs) {
     auto my_tokens = tokenize(ifs);
     auto my_parser = std::make_unique<parser>(my_tokens);
     return my_parser;
