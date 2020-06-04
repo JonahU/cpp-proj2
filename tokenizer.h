@@ -23,7 +23,6 @@ constexpr auto match_keyword    (std::string_view sv) noexcept { return ctre::ma
 constexpr auto match_symbol     (std::string_view sv) noexcept { return ctre::match<symbol_regex>(sv); }
 
 enum class container_t  { c_unknown, c_vector, c_map };
-enum class identifier_t { i_unknown, i_typename };
 enum class keyword_t    { k_unknown, k_struct, k_class, k_inline, k_include };
 enum class modifier_t   { m_unknown, m_const, m_ptr, m_ref, m_unsigned };
 enum class symbol_t     { s_unknown, s_quot, s_apos, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
@@ -41,8 +40,7 @@ struct container_token : base_token {
 };
 
 struct identifier_token : base_token {
-    identifier_t type;
-    identifier_token(std::string&& _value, identifier_t _type) : base_token(std::move(_value)), type(_type) {}
+    identifier_token(std::string&& _value) : base_token(std::move(_value)) {}
 };
 
 struct keyword_token : base_token {
@@ -74,9 +72,9 @@ inline void token_list_push_container(std::unique_ptr<token_list>& my_tokens, st
     my_tokens->emplace_back(std::make_unique<container_token>(std::move(token), c_type));
 }
 
-inline void token_list_push_identifier(std::unique_ptr<token_list>& my_tokens, std::string& token, identifier_t i_type = identifier_t::i_unknown) {
+inline void token_list_push_identifier(std::unique_ptr<token_list>& my_tokens, std::string& token) {
     std::cout << "identifier " << token << std::endl;
-    my_tokens->emplace_back(std::make_unique<identifier_token>(std::move(token), i_type));
+    my_tokens->emplace_back(std::make_unique<identifier_token>(std::move(token)));
 }
 
 inline void token_list_push_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, keyword_t k_type) {
@@ -222,7 +220,7 @@ inline void fill_token_list_keyword_or_identifier(std::unique_ptr<token_list>& m
         } else if (match_identifier(token)) {
             if (next_token_is_typename) {
                 new_types.insert(token);
-                token_list_push_identifier(my_tokens, token, identifier_t::i_typename);
+                token_list_push_type(my_tokens, token, type_t::t_custom);
                 next_token_is_typename = false;
             } else {
                 token_list_push_identifier(my_tokens, token);
