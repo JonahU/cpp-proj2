@@ -14,7 +14,7 @@ namespace proj2 {
 
 constexpr auto identifier_regex = ctll::fixed_string{"^[a-zA-Z_]+\\w*$"};
 constexpr auto isspace_regex    = ctll::fixed_string{"^\\s$"};
-constexpr auto keyword_regex    = ctll::fixed_string{"^(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(struct)|(class)|(inline)|(include)|(unsigned)|(const)$"};
+constexpr auto keyword_regex    = ctll::fixed_string{"^(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(struct)|(inline)|(include)|(unsigned)|(const)$"};
 constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(')|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " ' , ( ) { } ; # < > * &
 
 constexpr auto match_identifier (std::string_view sv) noexcept { return ctre::match<identifier_regex>(sv); }
@@ -23,7 +23,7 @@ constexpr auto match_keyword    (std::string_view sv) noexcept { return ctre::ma
 constexpr auto match_symbol     (std::string_view sv) noexcept { return ctre::match<symbol_regex>(sv); }
 
 enum class container_t  { c_unknown, c_vector, c_map };
-enum class keyword_t    { k_unknown, k_struct, k_class, k_inline, k_include };
+enum class keyword_t    { k_unknown, k_struct, k_inline, k_include };
 enum class modifier_t   { m_unknown, m_const, m_ptr, m_ref, m_unsigned };
 enum class symbol_t     { s_unknown, s_quot, s_apos, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
 enum class type_t       { t_unknown, t_custom, t_int, t_long, t_short, t_double, t_float, t_char, t_void, t_string };
@@ -116,7 +116,6 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         is_vector,
         is_map,
         is_struct,
-        is_class,
         is_inline,
         is_include,
         is_unsigned,
@@ -143,9 +142,6 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         token_list_push_container(my_tokens, token, container_t::c_map);
     } else if (is_struct) {
         token_list_push_keyword(my_tokens, token, keyword_t::k_struct);
-        next_token_is_typename = true;
-    } else if (is_class) {
-        token_list_push_keyword(my_tokens, token, keyword_t::k_class);
         next_token_is_typename = true;
     } else if (is_inline) {
         token_list_push_keyword(my_tokens, token, keyword_t::k_inline);
