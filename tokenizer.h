@@ -14,7 +14,7 @@ namespace proj2 {
 
 constexpr auto identifier_regex = ctll::fixed_string{"^[a-zA-Z_]+\\w*$"};
 constexpr auto isspace_regex    = ctll::fixed_string{"^\\s$"};
-constexpr auto keyword_regex    = ctll::fixed_string{"^(struct)|(inline)|(include)|(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(unsigned)|(const)$"};
+constexpr auto keyword_regex    = ctll::fixed_string{"^(struct)|(inline)|(include)|(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(std::tuple)|(unsigned)|(const)$"};
 constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(')|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " ' , ( ) { } ; # < > * &
 
 constexpr auto match_identifier (std::string_view sv) noexcept { return ctre::match<identifier_regex>(sv); }
@@ -22,7 +22,7 @@ constexpr auto match_isspace    (std::string_view sv) noexcept { return ctre::ma
 constexpr auto match_keyword    (std::string_view sv) noexcept { return ctre::match<keyword_regex>(sv); }
 constexpr auto match_symbol     (std::string_view sv) noexcept { return ctre::match<symbol_regex>(sv); }
 
-enum class container_t  { c_unknown, c_vector, c_map };
+enum class container_t  { c_unknown, c_vector, c_map, c_tuple };
 enum class keyword_t    { k_unknown, k_struct, k_inline, k_include };
 enum class modifier_t   { m_unknown, m_const, m_ptr, m_ref, m_unsigned };
 enum class symbol_t     { s_unknown, s_quot, s_apos, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
@@ -46,14 +46,14 @@ struct token_visitor_base {
 };
 
 struct base_token {
-    std::string value;
+    const std::string value;
     base_token(std::string&& _value) : value(_value) {}
     base_token(char _value         ) : value{_value} {}
     virtual void accept(token_visitor_base const& tv) = 0;
 };
 
 struct container_token : base_token {
-    container_t type;
+    const container_t type;
     container_token(std::string&& _value, container_t _type) : base_token(std::move(_value)), type(_type) {}
     virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
@@ -64,27 +64,27 @@ struct identifier_token : base_token {
 };
 
 struct keyword_token : base_token {
-    keyword_t type;
+    const keyword_t type;
     keyword_token(std::string&& _value, keyword_t _type) : base_token(std::move(_value)), type(_type) {}
     virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct modifier_token : base_token {
-    modifier_t type;
+    const modifier_t type;
     modifier_token(std::string&& _value, modifier_t _type) : base_token(std::move(_value)), type(_type) {}
     modifier_token(char          _value, modifier_t _type) : base_token(_value           ), type(_type) {}
     virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct symbol_token : base_token {
-    symbol_t type;
+    const symbol_t type;
     symbol_token(std::string&& _value, symbol_t _type) : base_token(std::move(_value)), type(_type) {}
     symbol_token(char _value         , symbol_t _type) : base_token(_value           ), type(_type) {}
     virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct type_token : base_token {
-    type_t type;
+    const type_t type;
     type_token(std::string&& _value, type_t _type) : base_token(std::move(_value)), type(_type) {}
     virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
@@ -143,6 +143,7 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         is_string,
         is_vector,   // containers
         is_map,
+        is_tuple,
         is_unsigned, // modifiers
         is_const 
         ] = regex_matches;
@@ -173,6 +174,8 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         token_list_push_container(my_tokens, token, container_t::c_vector);
     } else if (is_map) {
         token_list_push_container(my_tokens, token, container_t::c_map);
+    } else if (is_tuple) {
+        token_list_push_container(my_tokens, token, container_t::c_tuple);
     } else if (is_unsigned) {
         token_list_push_modifier(my_tokens, token, modifier_t::m_unsigned);
     } else if (is_const) {
