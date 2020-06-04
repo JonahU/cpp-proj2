@@ -14,7 +14,7 @@ namespace proj2 {
 
 constexpr auto identifier_regex = ctll::fixed_string{"^[a-zA-Z_]+\\w*$"};
 constexpr auto isspace_regex    = ctll::fixed_string{"^\\s$"};
-constexpr auto keyword_regex    = ctll::fixed_string{"^(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(struct)|(inline)|(include)|(unsigned)|(const)$"};
+constexpr auto keyword_regex    = ctll::fixed_string{"^(struct)|(inline)|(include)|(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(unsigned)|(const)$"};
 constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(')|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " ' , ( ) { } ; # < > * &
 
 constexpr auto match_identifier (std::string_view sv) noexcept { return ctre::match<identifier_regex>(sv); }
@@ -28,41 +28,65 @@ enum class modifier_t   { m_unknown, m_const, m_ptr, m_ref, m_unsigned };
 enum class symbol_t     { s_unknown, s_quot, s_apos, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
 enum class type_t       { t_unknown, t_custom, t_int, t_long, t_short, t_double, t_float, t_char, t_void, t_string };
 
+// forward declarations
+struct container_token;
+struct identifier_token;
+struct keyword_token;
+struct modifier_token;
+struct symbol_token;
+struct type_token;
+
+struct token_visitor_base {
+    virtual void visit(container_token  const& token) const = 0;
+    virtual void visit(identifier_token const& token) const = 0;
+    virtual void visit(keyword_token    const& token) const = 0;
+    virtual void visit(modifier_token   const& token) const = 0;
+    virtual void visit(symbol_token     const& token) const = 0;
+    virtual void visit(type_token       const& token) const = 0;
+};
+
 struct base_token {
     std::string value;
     base_token(std::string&& _value) : value(_value) {}
     base_token(char _value         ) : value{_value} {}
+    virtual void accept(token_visitor_base const& tv) = 0;
 };
 
 struct container_token : base_token {
     container_t type;
     container_token(std::string&& _value, container_t _type) : base_token(std::move(_value)), type(_type) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct identifier_token : base_token {
     identifier_token(std::string&& _value) : base_token(std::move(_value)) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct keyword_token : base_token {
     keyword_t type;
     keyword_token(std::string&& _value, keyword_t _type) : base_token(std::move(_value)), type(_type) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct modifier_token : base_token {
     modifier_t type;
     modifier_token(std::string&& _value, modifier_t _type) : base_token(std::move(_value)), type(_type) {}
     modifier_token(char          _value, modifier_t _type) : base_token(_value           ), type(_type) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct symbol_token : base_token {
     symbol_t type;
     symbol_token(std::string&& _value, symbol_t _type) : base_token(std::move(_value)), type(_type) {}
     symbol_token(char _value         , symbol_t _type) : base_token(_value           ), type(_type) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 struct type_token : base_token {
     type_t type;
     type_token(std::string&& _value, type_t _type) : base_token(std::move(_value)), type(_type) {}
+    virtual void accept(token_visitor_base const& tv) override { tv.visit(*this); }
 };
 
 using token_list = std::vector<std::unique_ptr<base_token>>;
@@ -104,8 +128,12 @@ inline void token_list_push_type(std::unique_ptr<token_list>& my_tokens, std::st
 
 template<typename... Captures>
 inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, ctre::regex_results<Captures...>& regex_matches, bool& next_token_is_typename) {
+    // Note: c++ 20's string literal operator template + ctre named captures should make this code cleaner and safer
     auto [ _,
-        is_int,
+        is_struct,   // keywords
+        is_inline,
+        is_include,
+        is_int,      // types
         is_long,
         is_short,
         is_double,
@@ -113,14 +141,19 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         is_char,
         is_void,
         is_string,
-        is_vector,
+        is_vector,   // containers
         is_map,
-        is_struct,
-        is_inline,
-        is_include,
-        is_unsigned,
-        is_const ] = regex_matches;
-    if (is_int) {
+        is_unsigned, // modifiers
+        is_const 
+        ] = regex_matches;
+    if (is_struct) {
+        token_list_push_keyword(my_tokens, token, keyword_t::k_struct);
+        next_token_is_typename = true;
+    } else if (is_inline) {
+        token_list_push_keyword(my_tokens, token, keyword_t::k_inline);
+    } else if (is_include) {
+        token_list_push_keyword(my_tokens, token, keyword_t::k_include);
+    } else if (is_int) {
         token_list_push_type(my_tokens, token, type_t::t_int);
     } else if (is_long) {
         token_list_push_type(my_tokens, token, type_t::t_long);
@@ -140,13 +173,6 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         token_list_push_container(my_tokens, token, container_t::c_vector);
     } else if (is_map) {
         token_list_push_container(my_tokens, token, container_t::c_map);
-    } else if (is_struct) {
-        token_list_push_keyword(my_tokens, token, keyword_t::k_struct);
-        next_token_is_typename = true;
-    } else if (is_inline) {
-        token_list_push_keyword(my_tokens, token, keyword_t::k_inline);
-    } else if (is_include) {
-        token_list_push_keyword(my_tokens, token, keyword_t::k_include);
     } else if (is_unsigned) {
         token_list_push_modifier(my_tokens, token, modifier_t::m_unsigned);
     } else if (is_const) {
@@ -172,7 +198,8 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
         is_lt,
         is_gt,
         is_ptr,
-        is_ref ] = regex_matches;
+        is_ref 
+        ] = regex_matches;
     if (is_quot) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_quot);
     } else if (is_apos) {
