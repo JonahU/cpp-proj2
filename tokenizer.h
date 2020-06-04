@@ -209,7 +209,6 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
     }
 }
 
-// TODO: simple state machine, make set of new types, add to set if identifier follows struct keyword 
 inline void fill_token_list_keyword_or_identifier(std::unique_ptr<token_list>& my_tokens, std::string& token, std::set<std::string, std::less<>>& new_types) {
     static bool next_token_is_typename = false;
     if (!token.empty()) {

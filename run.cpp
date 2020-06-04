@@ -6,7 +6,7 @@ using namespace proj2;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        cerr << "usage: " << argv[0] <<" <path-to-file>\n";
+        cerr << "usage: " << argv[0] <<" <path-to-header-file>\n";
         return 1;
     }
 
