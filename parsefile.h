@@ -74,6 +74,8 @@ struct parser_token_visitor : token_visitor_base {
     parser_token_visitor(parser& _my_parser) : my_parser(_my_parser) {}
 
     void visit(container_token const& token) const override {
+        // TODO: implement properly
+        my_parser += parser_scope::scope_variable;
         std::cout << "visiting container: " << token.value << "\n";
     }
 
@@ -104,11 +106,14 @@ struct parser_token_visitor : token_visitor_base {
                 --my_parser;
                 break;
             case symbol_t::s_lpar:
-                // TODO: maybe move this to keyword_t inline?
+                // TODO: consider move this to keyword_t inline?
                 my_parser += parser_scope::scope_function;
                 break;
             case symbol_t::s_rpar:
-                --my_parser;
+                if (my_parser.current_scope() == parser_scope::scope_variable) {
+                    --my_parser; // variable scope
+                }
+                --my_parser; // function scope
                 break;
             case symbol_t::s_lcub:
                 if (my_parser.current_scope() != parser_scope::scope_function) {
@@ -183,12 +188,12 @@ struct parser_token_visitor : token_visitor_base {
     }
 
     void enter_scope(parser_scope const ps) {
-        std::cout << "NEW SCOPE\n\n"; 
+        std::cout << "\nNEW SCOPE\n"; 
         scope.push(ps);
     }
 
     void exit_scope() {
-        std::cout << "OLD SCOPE\n\n";
+        std::cout << "EXIT SCOPE\n\n";
         if (scope.size() > 0) {
             scope.pop();
         } else {
