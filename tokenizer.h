@@ -1,10 +1,10 @@
 #pragma once
 
-#include <stdexcept>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -130,22 +130,22 @@ template<typename... Captures>
 inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, ctre::regex_results<Captures...>& regex_matches, bool& next_token_is_typename) {
     // Note: c++ 20's string literal operator template + ctre named captures should make this code cleaner and safer
     auto [ _,
-        is_struct,   // keywords
+        is_struct,    // keywords
         is_inline,
         is_include,
-        is_int,      // types
+        is_int,       // types
         is_long,
         is_short,
         is_double,
         is_float,
         is_char,
-        is_void,
+        is_void_,
         is_string,
-        is_vector,   // containers
+        is_vector,    // containers
         is_map,
         is_tuple,
-        is_unsigned, // modifiers
-        is_const 
+        is_unsigned_, // modifiers
+        is_const_ 
         ] = regex_matches;
     if (is_struct) {
         token_list_push_keyword(my_tokens, token, keyword_t::k_struct);
@@ -166,7 +166,7 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         token_list_push_type(my_tokens, token, type_t::t_float);
     } else if (is_char) {
         token_list_push_type(my_tokens, token, type_t::t_char);
-    } else if (is_void) {
+    } else if (is_void_) {
         token_list_push_type(my_tokens, token, type_t::t_void);
     } else if (is_string) {
         token_list_push_type(my_tokens, token, type_t::t_string);
@@ -176,13 +176,13 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
         token_list_push_container(my_tokens, token, container_t::c_map);
     } else if (is_tuple) {
         token_list_push_container(my_tokens, token, container_t::c_tuple);
-    } else if (is_unsigned) {
+    } else if (is_unsigned_) {
         token_list_push_modifier(my_tokens, token, modifier_t::m_unsigned);
-    } else if (is_const) {
+    } else if (is_const_) {
         token_list_push_modifier(my_tokens, token, modifier_t::m_const);
     } else {
         std::cerr << "invalid keyword: '" << token << "'\n"; 
-        throw std::invalid_argument("invalid keyword"); 
+        throw std::invalid_argument("tokenizer: invalid keyword"); 
     }
 }
 
@@ -231,7 +231,7 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
         token_list_push_modifier(my_tokens, symbol, modifier_t::m_ref);
     } else {
         std::cerr << "invalid symbol: '" << symbol << "'\n"; 
-        throw std::invalid_argument("invalid symbol"); 
+        throw std::invalid_argument("tokenizer: invalid symbol"); 
     }
 }
 
@@ -252,7 +252,7 @@ inline void fill_token_list_keyword_or_identifier(std::unique_ptr<token_list>& m
             }
         } else {
             std::cerr << "invalid token: '" << token << "'\n"; 
-            throw std::invalid_argument("invalid token"); 
+            throw std::invalid_argument("tokenizer: invalid token"); 
         }
         token.clear();
     }

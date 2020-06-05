@@ -1,5 +1,5 @@
 jit:
-	g++ -std=c++17 -Wall -O3 run.cpp -o run.o && ./run.o examples/simple.h
+	g++ -std=c++17 -Wall -O3 run.cpp -o run.o && ./run.o examples/harder.h
 
 debug:
 	g++ -std=c++17 -Wall -g run.cpp -o run.o
