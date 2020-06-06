@@ -47,8 +47,9 @@ struct token_visitor_base {
 
 struct base_token {
     const std::string value;
-    base_token(std::string&& _value) : value(_value) {}
-    base_token(char _value         ) : value{_value} {}
+    base_token(std::string&& _value) : value(std::move(_value)) {}
+    base_token(char _value)          : value{_value}            {}
+    virtual ~base_token() = default;
     virtual void accept(token_visitor_base const& tv) = 0;
 };
 
@@ -91,7 +92,7 @@ struct type_token : base_token {
 
 using token_list = std::vector<std::unique_ptr<base_token>>;
 
-inline void token_list_push_container(std::unique_ptr<token_list>& my_tokens, std::string& token, container_t c_type) {
+inline void token_list_push_container(std::unique_ptr<token_list>& my_tokens, std::string& token, container_t const c_type) {
     std::cout << "container " << token << "\n";
     my_tokens->emplace_back(std::make_unique<container_token>(std::move(token), c_type));
 }
@@ -101,33 +102,33 @@ inline void token_list_push_identifier(std::unique_ptr<token_list>& my_tokens, s
     my_tokens->emplace_back(std::make_unique<identifier_token>(std::move(token)));
 }
 
-inline void token_list_push_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, keyword_t k_type) {
+inline void token_list_push_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, keyword_t const k_type) {
     std::cout << "keyword " << token << "\n";
     my_tokens->emplace_back(std::make_unique<keyword_token>(std::move(token), k_type));
 }
 
-inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, std::string& token, modifier_t m_type) {
+inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, std::string& token, modifier_t const m_type) {
     std::cout << "modifier " << token << "\n";
     my_tokens->emplace_back(std::make_unique<modifier_token>(std::move(token), m_type));
 }
 
-inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, char token, modifier_t m_type) {
+inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, char token, modifier_t const m_type) {
     std::cout << "modifier " << token << "\n";
     my_tokens->emplace_back(std::make_unique<modifier_token>(token, m_type));
 }
 
-inline void token_list_push_symbol(std::unique_ptr<token_list>& my_tokens, char token, symbol_t s_type) {
+inline void token_list_push_symbol(std::unique_ptr<token_list>& my_tokens, char token, symbol_t const s_type) {
     std::cout << "symbol " << token << "\n";
     my_tokens->emplace_back(std::make_unique<symbol_token>(token, s_type));
 }
 
-inline void token_list_push_type(std::unique_ptr<token_list>& my_tokens, std::string& token, type_t t_type) {
+inline void token_list_push_type(std::unique_ptr<token_list>& my_tokens, std::string& token, type_t const t_type) {
     std::cout << "type " << token << "\n";
     my_tokens->emplace_back(std::make_unique<type_token>(std::move(token), t_type));
 }
 
 template<typename... Captures>
-inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, ctre::regex_results<Captures...>& regex_matches, bool& next_token_is_typename) {
+inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, ctre::regex_results<Captures...> const& regex_matches, bool& next_token_is_typename) {
     // Note: c++ 20's string literal operator template + ctre named captures should make this code cleaner and safer
     auto [ _,
         is_struct,    // keywords
@@ -187,7 +188,7 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
 }
 
 template<typename... Captures>
-inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens, char symbol, ctre::regex_results<Captures...>& regex_matches) {
+inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens, char symbol, ctre::regex_results<Captures...> const& regex_matches) {
     auto [ _,
         is_quot,
         is_apos,
@@ -262,10 +263,9 @@ inline std::unique_ptr<token_list> tokenize(std::ifstream& ifs) {
     std::unique_ptr<token_list> my_tokens = std::make_unique<token_list>();
     std::set<std::string, std::less<>> new_types;
 
-    char next_ch_str[] = { '\0', '\0' };
-    char& next_ch = next_ch_str[0];
+    char next_ch_str[] = { '\0', '\0' }; // regex match wants a string
+    char& next_ch = next_ch_str[0]; // but ifstream.get() wants a char
     std::string token;
-    token.reserve(30);
 
     while(!ifs.eof()) {
         ifs.get(next_ch);
