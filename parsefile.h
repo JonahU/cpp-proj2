@@ -10,6 +10,8 @@
 
 namespace proj2 {
 
+// TODO: remove const from all parser type members?
+
 struct parser_include {
     const bool is_sys_header; // <header> vs "header"
     std::string_view name;
@@ -29,7 +31,7 @@ struct parser_template_type {
     std::unique_ptr<std::vector<parser_basic_type>>  types;
     const container_t                                container_type;
     std::string_view                                 custom_typename;
-    std::unique_ptr<parser_template_type>            next;
+    std::unique_ptr<parser_template_type>            nested;
 };
 
 struct parser_basic_variable {
@@ -46,9 +48,9 @@ using parser_variable = std::variant<parser_basic_variable, parser_container>;
 
 struct parser_struct {
     const std::vector<parser_variable> members;
+    std::unique_ptr<parser_struct>     nested; // Note: nested structs not tested yet
     std::string_view                   name;
 };
-// Note: add support for nested structs?
 
 struct parser_function {
     const std::vector<parser_variable> params;
@@ -57,16 +59,34 @@ struct parser_function {
 
 enum class parser_scope {
     unknown,
-    scope_global,
-    scope_preprocessor,
-    scope_stringlit,
-    scope_variable,
-    scope_struct,
-    scope_function, // Note: separate into func def + func decl ?
-    scope_template
+    global,
+    preprocessor,
+    stringlit,
+    variable,
+    struct_decl,
+    struct_def,
+    function_decl,
+    function_def, // Note: func def not tested yet
+    template_
 };
 
-struct parser {
+// For error messages
+std::ostream& operator<< (std::ostream& os, parser_scope ps) {
+    switch (ps) {
+        case parser_scope::global        : return os << "global"       ;
+        case parser_scope::preprocessor  : return os << "preprocessor" ;
+        case parser_scope::stringlit     : return os << "stringlit"    ;
+        case parser_scope::variable      : return os << "varaible"     ;
+        case parser_scope::struct_decl   : return os << "struct_decl"  ;
+        case parser_scope::struct_def    : return os << "struct_def"   ;
+        case parser_scope::function_decl : return os << "function_decl";
+        case parser_scope::function_def  : return os << "function_def" ;
+        case parser_scope::template_     : return os << "template_"     ;
+        default                          : return os << "unknown"      ;
+    };
+}
+
+class parser {
 
 // Note: parser_token_visitor is here because of forward declaration problems 
 struct parser_token_visitor : token_visitor_base {
@@ -75,7 +95,7 @@ struct parser_token_visitor : token_visitor_base {
 
     void visit(container_token const& token) const override {
         // TODO: implement properly
-        my_parser += parser_scope::scope_variable;
+        my_parser += parser_scope::variable;
         std::cout << "visiting container: " << token.value << "\n";
     }
 
@@ -85,6 +105,10 @@ struct parser_token_visitor : token_visitor_base {
 
     void visit(keyword_token const& token) const override {
         std::cout << "visiting keyword: " << token.value << "\n";
+        // TODO: implement this fully
+        if (token.type == keyword_t::k_struct) {
+            my_parser += parser_scope::struct_decl;
+        }
     }
 
     void visit(modifier_token const& token) const override {
@@ -95,56 +119,61 @@ struct parser_token_visitor : token_visitor_base {
         std::cout << "visiting symbol: " << token.value << "\n";
         switch (token.type) {
             case symbol_t::s_quot:
-                if (my_parser.current_scope() == parser_scope::scope_preprocessor) {
-                    my_parser += parser_scope::scope_stringlit;
-                } else if (my_parser.current_scope() == parser_scope::scope_stringlit) {
-                    --my_parser;
+                if (my_parser == parser_scope::preprocessor) {
+                    my_parser += parser_scope::stringlit;
+                } else if (my_parser == parser_scope::stringlit) {
+                    my_parser -= parser_scope::stringlit;
                 }
                 break;
             case symbol_t::s_comma:
                 // TODO: implement this fully
-                --my_parser;
+                my_parser -= parser_scope::variable;
                 break;
             case symbol_t::s_lpar:
-                // TODO: consider move this to keyword_t inline?
-                my_parser += parser_scope::scope_function;
+                my_parser += parser_scope::function_decl;
                 break;
             case symbol_t::s_rpar:
-                if (my_parser.current_scope() == parser_scope::scope_variable) {
-                    --my_parser; // variable scope
+                if (my_parser == parser_scope::variable) {
+                    my_parser -= parser_scope::variable;
                 }
-                --my_parser; // function scope
+                my_parser -= parser_scope::function_decl;
                 break;
             case symbol_t::s_lcub:
-                if (my_parser.current_scope() != parser_scope::scope_function) {
-                    // TODO: move this to keyword_t struct
-                    my_parser += parser_scope::scope_struct;
+                if (my_parser == parser_scope::struct_decl) {
+                    my_parser += parser_scope::struct_def;
+                } else if (my_parser == parser_scope::function_decl) {
+                    my_parser += parser_scope::function_def;
                 }
                 break;
             case symbol_t::s_rcub:
+                if (my_parser == parser_scope::struct_def) {
+                    my_parser -= parser_scope::struct_def;
+                } else if (my_parser == parser_scope::function_def) {
+                    my_parser -=parser_scope::function_def;
+                }
                 break;
             case symbol_t::s_semi:
                 --my_parser;
                 break;
             case symbol_t::s_pound:
-                my_parser += parser_scope::scope_preprocessor;
+                my_parser += parser_scope::preprocessor;
                 break;
             case symbol_t::s_lt:
-                if (my_parser.current_scope() != parser_scope::scope_preprocessor) {
-                    my_parser += parser_scope::scope_template;
+                if (my_parser != parser_scope::preprocessor) {
+                    my_parser += parser_scope::template_;
                 }
                 break;
             case symbol_t::s_gt:
-                if (my_parser.current_scope() == parser_scope::scope_preprocessor) {
-                    --my_parser;
-                } else if (my_parser.current_scope() == parser_scope::scope_variable) {
-                    --my_parser; // scope_variable
-                    --my_parser; // scope_template
+                if (my_parser == parser_scope::preprocessor) {
+                    my_parser -= parser_scope::preprocessor;
+                } else if (my_parser == parser_scope::variable) {
+                    my_parser -= parser_scope::variable;
+                    my_parser -= parser_scope::template_;
                 }
                 break;
             default:
                 // Note: no char/string literal support yet
-                std::cerr << "unsupported symbol: '" << token.value << "'\n"; 
+                std::cerr << "unsupported symbol: " << token.value << "\n"; 
                 throw std::invalid_argument("parser: unsupported symbol"); 
         }
     }
@@ -153,63 +182,79 @@ struct parser_token_visitor : token_visitor_base {
         std::cout << "visiting type: " << token.value << "\n";
 
         // TODO: implement this fully
-        if (my_parser.current_scope() != parser_scope::scope_struct) {
-            my_parser += parser_scope::scope_variable;
+        if (my_parser.current_scope() != parser_scope::struct_decl) {
+            my_parser += parser_scope::variable;
         }
     }
-}; 
+};
 
     std::unique_ptr<token_list> const& tokens;
-    parser_token_visitor               my_token_visitor;
-    std::stack<parser_scope>           scope;
-
-    parser(std::unique_ptr<token_list> const& _tokens)
-        : tokens(_tokens), my_token_visitor(*this), scope() {
-        parse_tokens();
-        check_for_failure();
-    }
+    parser_token_visitor        my_token_visitor;
+    std::stack<parser_scope>    scope;
 
     void parse_tokens() {
-        scope.push(parser_scope::scope_global);
+        scope.push(parser_scope::global);
         for (std::unique_ptr<base_token> const& token_ptr: *tokens) {
             token_ptr->accept(my_token_visitor);
         }
     }
 
     void check_for_failure() {
-        if (scope.top() != parser_scope::scope_global) {
-            std::cerr << "parser failed to process '" << scope.size() - 1 << "' scopes\n"; 
+        if (scope.top() != parser_scope::global) {
+            std::cerr << "parser failed to process '" << get_depth() - 1 << "' scopes\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
     }
 
-    parser_scope const& current_scope() const {
+    int get_depth() const {
+        return scope.size();
+    }
+
+    parser_scope current_scope() const {
         return scope.top();
     }
 
     void enter_scope(parser_scope const ps) {
-        std::cout << "\nNEW SCOPE\n"; 
+        std::cout << "NEW SCOPE >" << ps << "\n"; 
         scope.push(ps);
     }
 
     void exit_scope() {
-        std::cout << "EXIT SCOPE\n\n";
-        if (scope.size() > 0) {
-            scope.pop();
-        } else {
-            std::cerr << "parser bad scope format\n"; 
+        if (scope.size() < 1) {
+            std::cerr << "parser bad scope exit\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
+        scope.pop();
     }
+
+    void exit_scope(parser_scope const expected_scope) {
+        if (current_scope() != expected_scope) {
+            std::cerr << "parser expected scope '" << expected_scope << "', got '" << current_scope() << "'\n"; 
+            throw std::runtime_error("parser: parse failure"); 
+        }
+        std::cout << "EXIT SCOPE<" << expected_scope << "\n";
+        exit_scope();
+    }
+
+    bool operator ==(parser_scope const ps) const { return current_scope() == ps; }
+
+    bool operator !=(parser_scope const ps) const { return current_scope() != ps; }
 
     void operator +=(parser_scope const ps) { enter_scope(ps); }
 
-    void operator--() { exit_scope(); }
+    void operator -=(parser_scope const ps) { exit_scope(ps); }
+
+    void operator--()    { std::cout << "EXIT SCOPE<\n"; exit_scope(); }
 
     void operator--(int) { exit_scope(); }
+
+public:
+    parser(std::unique_ptr<token_list> const& _tokens)
+        : tokens(_tokens), my_token_visitor(*this), scope() {
+        parse_tokens();
+        check_for_failure();
+    }
 };
-
-
 
 inline std::unique_ptr<parser> parse(std::unique_ptr<token_list>& tokens) {
     std::unique_ptr<parser> my_parser = std::make_unique<parser>(tokens);

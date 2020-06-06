@@ -7,7 +7,7 @@ using namespace proj2;
 
 /* TODO:
     - parser
-    - boost python or cpython API?
+    - boost python (or cpython API?)
     - c++ codegen
     - python codegen
     - --emit-tokens flag
