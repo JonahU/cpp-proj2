@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <variant>
+#include <vector>
 #include "tokenizer.h"
 
 namespace proj2 {
@@ -26,17 +27,16 @@ struct parser_basic_type {
     std::string_view custom_typename;
 };
 
-struct parser_template_type {
-    const parser_basic_type                          type;
-    std::unique_ptr<std::vector<parser_basic_type>>  types;
-    const container_t                                container_type;
-    std::string_view                                 custom_typename;
-    std::unique_ptr<parser_template_type>            nested;
-};
-
 struct parser_basic_variable {
     const parser_basic_type type;
     std::string_view        name;
+};
+
+struct parser_template_type {
+    const parser_basic_type               type;
+    const container_t                     container_type;
+    std::string_view                      custom_typename;
+    std::unique_ptr<parser_template_type> nested;
 };
 
 struct parser_container {
@@ -86,6 +86,14 @@ std::ostream& operator<< (std::ostream& os, parser_scope ps) {
     };
 }
 
+using ast_node = std::variant<
+    parser_include,
+    parser_basic_type,
+    parser_basic_variable,
+    parser_template_type,
+    parser_container>;
+using ast = std::vector<ast_node>;
+
 class parser {
 
 // Note: parser_token_visitor is here because of forward declaration problems 
@@ -94,7 +102,6 @@ struct parser_token_visitor : token_visitor_base {
     parser_token_visitor(parser& _my_parser) : my_parser(_my_parser) {}
 
     void visit(container_token const& token) const override {
-        // TODO: implement properly
         my_parser += parser_scope::variable;
         std::cout << "visiting container: " << token.value << "\n";
     }
@@ -105,7 +112,6 @@ struct parser_token_visitor : token_visitor_base {
 
     void visit(keyword_token const& token) const override {
         std::cout << "visiting keyword: " << token.value << "\n";
-        // TODO: implement this fully
         if (token.type == keyword_t::k_struct) {
             my_parser += parser_scope::struct_decl;
         }
@@ -126,7 +132,6 @@ struct parser_token_visitor : token_visitor_base {
                 }
                 break;
             case symbol_t::s_comma:
-                // TODO: implement this fully
                 my_parser -= parser_scope::variable;
                 break;
             case symbol_t::s_lpar:
@@ -180,8 +185,6 @@ struct parser_token_visitor : token_visitor_base {
 
     void visit(type_token const& token) const override {
         std::cout << "visiting type: " << token.value << "\n";
-
-        // TODO: implement this fully
         if (my_parser.current_scope() != parser_scope::struct_decl) {
             my_parser += parser_scope::variable;
         }
@@ -189,8 +192,9 @@ struct parser_token_visitor : token_visitor_base {
 };
 
     std::unique_ptr<token_list> const& tokens;
-    parser_token_visitor        my_token_visitor;
-    std::stack<parser_scope>    scope;
+    std::unique_ptr<ast>               my_ast;
+    parser_token_visitor        const  my_token_visitor;
+    std::stack<parser_scope>           scope;
 
     void parse_tokens() {
         scope.push(parser_scope::global);
@@ -250,15 +254,19 @@ struct parser_token_visitor : token_visitor_base {
 
 public:
     parser(std::unique_ptr<token_list> const& _tokens)
-        : tokens(_tokens), my_token_visitor(*this), scope() {
+        : tokens(_tokens), my_ast(), my_token_visitor(*this), scope() {
         parse_tokens();
         check_for_failure();
     }
+
+    std::unique_ptr<ast>&& move_ast() {
+        return std::move(my_ast);
+    }
 };
 
-inline std::unique_ptr<parser> parse(std::unique_ptr<token_list>& tokens) {
-    std::unique_ptr<parser> my_parser = std::make_unique<parser>(tokens);
-    return my_parser;
+inline std::unique_ptr<ast> parse(std::unique_ptr<token_list>& tokens) {
+    parser my_parser(tokens);
+    return my_parser.move_ast();
 }
 
 }
