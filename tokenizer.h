@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <utility>
 #include "ctre.hpp"
 
 namespace proj2 {
@@ -127,7 +128,7 @@ inline void token_list_push_type(std::unique_ptr<token_list>& my_tokens, std::st
     my_tokens->emplace_back(std::make_unique<type_token>(std::move(token), t_type));
 }
 
-template<typename... Captures>
+template <typename... Captures>
 inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, ctre::regex_results<Captures...> const& regex_matches, bool& next_token_is_typename) {
     // Note: c++ 20's string literal operator template + ctre named captures should make this code cleaner and safer
     auto [ _,
@@ -187,7 +188,7 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
     }
 }
 
-template<typename... Captures>
+template <typename... Captures>
 inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens, char symbol, ctre::regex_results<Captures...> const& regex_matches) {
     auto [ _,
         is_quot,
