@@ -14,3 +14,5 @@ inline void launch(Rocket r, std::string& when, std::string& where);
 inline std::vector<Rocket>* make_rockets(int how_many);
 
 inline std::map<std::string, Rocket>* get_rockets();
+
+inline Rocket apollo11;

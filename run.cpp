@@ -10,9 +10,8 @@ using namespace proj2;
     - boost python (or cpython API?)
     - c++ codegen
     - python codegen
-    - parser multiple variants for std::visit lookup https://www.bfilipek.com/2018/09/visit-variants.html ?
+    - inline container (global scope)
     - tokenizer string literal (for preprocessor #include)
-    - modifier inline?
     - tokenizer func def ?
     - default values ?
     - string literal ?

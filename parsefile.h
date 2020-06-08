@@ -17,6 +17,11 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 // explicit deduction guide (not needed as of C++20)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+
+struct ast_basic_variable;
+struct ast_container;
+using ast_variable = std::variant<ast_basic_variable, ast_container>;
+
 struct ast_type_basic {
     type_t      type;
     bool        mod_const;
@@ -26,12 +31,15 @@ struct ast_type_basic {
     std::string custom_typename;
 };
 
-struct ast_type_template {
-    ast_type_basic                     type;
-    container_t                        container_type;
-    std::string                        custom_typename;
-    std::unique_ptr<ast_type_template> nested; // Note: nested templates not tested yet
+struct ast_type_container {
+    container_t                 type;
+    bool                        mod_const;
+    bool                        mod_ptr;
+    bool                        mod_ref;
+    std::vector<ast_type_basic> template_types; // no nested templates
 };
+
+using ast_type = std::variant<ast_type_basic, ast_type_container>;
 
 struct ast_basic_variable {
     ast_type_basic type;
@@ -39,28 +47,43 @@ struct ast_basic_variable {
 };
 
 struct ast_container {
-    ast_type_template type;
-    std::string       name;
+    ast_type_container type;
+    std::string        name;
 };
 
-using ast_variable = std::variant<ast_basic_variable, ast_container>;
-
 struct ast_function {
-    ast_variable              return_type;
+    ast_type                  return_type;
     std::vector<ast_variable> params;
     std::string               name;
 };
 
 struct ast_struct {
-    std::vector<ast_variable>   members;
-    std::unique_ptr<ast_struct> nested; // Note: nested structs not tested yet
-    std::string                 name;
+    std::vector<ast_variable> members; // no nested structs
+    std::string               name;
 };
 
 struct ast_include {
     bool        quote; // <header> vs "header"
     std::string name;
 };
+
+using ast_node = std::variant<
+    ast_basic_variable,
+    ast_container,
+    ast_function,
+    ast_include,
+    ast_struct>;
+using ast = std::vector<ast_node>;
+
+// helper abstract base class for operating on ast nodes
+struct ast_visitor_base {
+    virtual void operator() (ast_basic_variable&) const = 0;
+    virtual void operator() (ast_container&)      const = 0;
+    virtual void operator() (ast_function&)       const = 0;
+    virtual void operator() (ast_include&)        const = 0;
+    virtual void operator() (ast_struct&)         const = 0;
+};
+
 
 enum class parser_scope {
     unknown,
@@ -91,17 +114,9 @@ std::ostream& operator<< (std::ostream& os, parser_scope ps) {
     };
 }
 
-using ast_node = std::variant<
-    ast_basic_variable,
-    ast_container,
-    ast_function,
-    ast_include,
-    ast_struct>;
-using ast = std::vector<ast_node>;
 
-// Note: variants can't hold references
+// Note: variants can't hold references, look at reference_wrapper?
 using token_tag = std::variant<
-    std::monostate, // because tokens aren't default constructable
     container_token  const*,
     identifier_token const*,
     keyword_token    const*,
@@ -109,14 +124,6 @@ using token_tag = std::variant<
     symbol_token     const*,
     type_token       const*>;
 
-// helper abstract base class for operating on ast nodes
-struct ast_visitor_base {
-    virtual void operator() (ast_basic_variable&) const = 0;
-    virtual void operator() (ast_container&)      const = 0;
-    virtual void operator() (ast_function&)       const = 0;
-    virtual void operator() (ast_include&)        const = 0;
-    virtual void operator() (ast_struct&)         const = 0;
-};
 
 class parser {
 // Note: visitors are declared inside parser because of forward declaration problems
@@ -125,18 +132,18 @@ struct parser_ast_visitor { // Note: doesn't inherit from ast_visitor_base becau
     parser& my_parser;
     parser_ast_visitor(parser& _my_parser) : my_parser(_my_parser) {}
 
-    // void operator() (ast_basic_variable&) const {
-
     void operator() (ast_basic_variable& node, identifier_token const* token) const;
     void operator() (ast_basic_variable& node, modifier_token   const* token) const;
     void operator() (ast_basic_variable& node, type_token       const* token) const;
 
-    // void operator() (ast_container&) const {
-    // void operator() (ast_function&) const {
+    void operator() (ast_container& node, container_token  const* token) const;
+    void operator() (ast_container& node, modifier_token   const* token) const;
+    void operator() (ast_container& node, type_token       const* token) const;
+
+    // void operator() (ast_function&, identifier_token const* token) const; // no use for this currently
 
     void operator() (ast_include& node, identifier_token const* token) const;
 
-    void operator() (ast_struct& node, identifier_token const* token) const;
     void operator() (ast_struct& node, type_token       const* token) const;
 
     // Note: with c++20 can change this to operator() (auto&, auto&)
@@ -154,6 +161,7 @@ struct parser_token_visitor : token_visitor_base {
         my_parser.set_current_token(token);
 
         my_parser += parser_scope::variable;
+        my_parser.push_node<ast_container>();
 
         my_parser.update_node();
     }
@@ -196,7 +204,8 @@ struct parser_token_visitor : token_visitor_base {
     void visit(symbol_token const& token) const override {
         std::cout << "visiting symbol: " << token.value << "\n";
         my_parser.set_current_token(token);
-
+        
+        parser_scope prev_scope = parser_scope::unknown;
         switch (token.type) {
             case symbol_t::s_quot:
                 if (my_parser == parser_scope::preprocessor) {
@@ -210,12 +219,14 @@ struct parser_token_visitor : token_visitor_base {
                 break;
             case symbol_t::s_lpar:
                 my_parser += parser_scope::function_decl;
+                my_parser.push_node<ast_function>();
                 break;
             case symbol_t::s_rpar:
                 if (my_parser == parser_scope::variable) {
-                    my_parser -= parser_scope::variable;
+                    my_parser -= parser_scope::variable; // last function param
                 }
                 my_parser -= parser_scope::function_decl;
+                my_parser.pop_node<ast_function>();
                 break;
             case symbol_t::s_lcub:
                 if (my_parser == parser_scope::struct_decl) {
@@ -233,7 +244,16 @@ struct parser_token_visitor : token_visitor_base {
                 }
                 break;
             case symbol_t::s_semi:
+                prev_scope = my_parser.current_scope();
                 --my_parser;
+                if (my_parser.node_exists() &&
+                    my_parser == parser_scope::global &&
+                    prev_scope == parser_scope::variable)
+                {
+                    my_parser.pop_node<ast_basic_variable>();
+                    // TODO: what about containers at global scope?
+                    // my_parser.pop_node<ast_container>();
+                }
                 break;
             case symbol_t::s_pound:
                 my_parser += parser_scope::preprocessor;
@@ -251,6 +271,7 @@ struct parser_token_visitor : token_visitor_base {
                 } else if (my_parser == parser_scope::variable) {
                     my_parser -= parser_scope::variable;
                     my_parser -= parser_scope::template_;
+                    my_parser.pop_node<ast_container>();
                 }
                 break;
             default:
@@ -297,6 +318,10 @@ struct parser_token_visitor : token_visitor_base {
             std::cerr << "parser failed to process '" << get_depth() - 1 << "' scopes\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
+        if (!ast_nodes_under_construction.empty()) {
+            std::cerr << "parser failed to construct '" << ast_nodes_under_construction.size() << "' ast nodes\n"; 
+            throw std::runtime_error("parser: parse failure"); 
+        }
     }
 
     int get_depth() const {
@@ -308,7 +333,7 @@ struct parser_token_visitor : token_visitor_base {
     }
 
     void enter_scope(parser_scope const ps) {
-        std::cout << "NEW SCOPE >" << ps << "\n"; 
+        // std::cout << "NEW SCOPE >" << ps << "\n"; 
         scope.push(ps);
     }
 
@@ -325,7 +350,7 @@ struct parser_token_visitor : token_visitor_base {
             std::cerr << "parser expected scope '" << expected_scope << "', got '" << current_scope() << "'\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
-        std::cout << "EXIT SCOPE<" << expected_scope << "\n";
+        // std::cout << "EXIT SCOPE<" << expected_scope << "\n";
         exit_scope();
     }
 
@@ -337,9 +362,9 @@ struct parser_token_visitor : token_visitor_base {
 
     void operator -=(parser_scope const ps) { exit_scope(ps); }
 
-    void operator--()    { std::cout << "EXIT SCOPE<\n"; exit_scope(); }
+    void operator --()    { /* std::cout << "EXIT SCOPE<\n"; */ exit_scope(); }
 
-    void operator--(int) { exit_scope(); }
+    void operator --(int) { exit_scope(); }
 
     token_tag const& get_current_token() const {
         return current_token_tag; 
@@ -354,7 +379,13 @@ struct parser_token_visitor : token_visitor_base {
         return ast_nodes_under_construction.top();
     }
 
-    bool constructing_nodes() {
+    ast_node current_node_pop() {
+        ast_node temp = std::move(current_node());
+        ast_nodes_under_construction.pop();
+        return temp;
+    }
+
+    bool node_exists() {
         return !ast_nodes_under_construction.empty();
     }
 
@@ -364,31 +395,73 @@ struct parser_token_visitor : token_visitor_base {
     }
 
     void update_node() {
-        if (constructing_nodes()) {
+        if (node_exists()) {
             std::visit(my_ast_visitor, current_node(), get_current_token());
         }
     }
 
     template <class Node> // TODO: enable if
     void pop_node() {
-        if (!std::holds_alternative<Node>(current_node())) {
-            std::vector<ast_variable> members; // TODO: improve this? it is wasteful. It also hold members in reverse order
-            while (!std::holds_alternative<Node>(current_node())) {
-                std::visit(overloaded {
-                    [&members](ast_basic_variable& node){ members.push_back(std::move(node)); },
-                    [&members](ast_container&      node){ members.push_back(std::move(node)); },
-                    [&members](auto&               node){ throw std::runtime_error("parser: invalid pop_node()"); }
-                }, current_node());
-                ast_nodes_under_construction.pop();
-            }
+        if (!std::holds_alternative<Node>(current_node()))
+            extract_members<Node>();
+        if(std::holds_alternative<ast_function>(current_node()))
+            move_function_to_ast();
+        else if (!std::holds_alternative<ast_container>(current_node()))
+            move_node_to_ast();
+    }
+
+    template <class Node> // TODO: enable if?
+    void extract_members() {
+        std::vector<ast_variable> members; // TODO: improve this? it is wasteful (TODO: fix members are in reverse order)
+
+        // extract struct members, func params or template types
+        while (!std::holds_alternative<Node>(current_node())) {
             std::visit(overloaded {
-                [&members](ast_function&  node){ node.params  = std::move(members); },
-                [&members](ast_struct&    node){ node.members = std::move(members); },
-                [&members](auto&          node){ throw std::runtime_error("parser: invalid pop_node()"); }
-            }, current_node());
+                [&members](ast_basic_variable&& node){ members.push_back(std::move(node)); },
+                [&members](ast_container&&      node){ members.push_back(std::move(node)); },
+                [&members](auto&&               node){ throw std::runtime_error("parser: invalid call to pop_node()"); }
+            }, current_node_pop());
         }
-        my_ast->push_back(std::move(current_node()));
-        ast_nodes_under_construction.pop();
+
+        // move members into struct or params into func or types in template
+        std::visit(overloaded {
+            [&members](ast_function&  node){ node.params  = std::move(members); },
+            [&members](ast_struct&    node){ node.members = std::move(members); },
+            [&members](ast_container& node){ // convert ast_variables -> ast_type_basic
+                for (ast_variable& var: members) {
+                    ast_basic_variable basic_var = std::get<ast_basic_variable>(var); // will throw if template contains a container
+                    node.type.template_types.push_back(std::move(basic_var.type));
+                }
+            },
+            [&members](auto& node){ throw std::runtime_error("parser: invalid call to pop_node()"); }
+        }, current_node());
+    }
+
+    void move_function_to_ast() {
+        // Note: this function will throw if there is no return value
+        ast_node the_function   = current_node_pop();
+        ast_node the_return_val = current_node_pop();
+        ast_function& func_ref = std::get<ast_function>(the_function);
+
+        std::visit(overloaded {
+            [&func_ref](ast_basic_variable& retv_ref){
+                func_ref.name        = std::move(retv_ref.name);
+                func_ref.return_type = std::move(retv_ref.type);
+            },
+            [&func_ref](ast_container& retv_ref){
+                func_ref.name        = std::move(retv_ref.name);
+                func_ref.return_type = std::move(retv_ref.type);
+            },
+            [&func_ref](auto&){
+                std::cerr << "parser unexpected function return type";
+                throw std::runtime_error("parser: invalid function return type"); 
+            }
+        }, the_return_val);
+        my_ast->push_back(std::move(the_function));
+    }
+
+    void move_node_to_ast() {
+        my_ast->push_back(current_node_pop());
     }
 
 public:
@@ -404,7 +477,7 @@ public:
         check_for_failure();
     }
 
-    std::unique_ptr<ast>&& move_ast() {
+    std::unique_ptr<ast> move_ast() {
         return std::move(my_ast);
     }
 };
@@ -428,11 +501,11 @@ void parser::parser_ast_visitor::operator() (ast_basic_variable& node, modifier_
             node.type.mod_unsigned = true;
             break;
         default:
-            std::cerr << "parser bad modifier\n"; 
+            std::cerr << "parser bad variable modifier\n"; 
             throw std::runtime_error("parser: parse failure"); 
     }
-
 }
+
 void parser::parser_ast_visitor::operator() (ast_basic_variable& node, type_token const* token) const {
     node.type.type = token->type;
     if (token->type == type_t::t_custom) {
@@ -440,16 +513,38 @@ void parser::parser_ast_visitor::operator() (ast_basic_variable& node, type_toke
     }
 }
 
+void parser::parser_ast_visitor::operator() (ast_container& node, container_token const* token) const {
+    node.type.type = token->type;
+}
+
+void parser::parser_ast_visitor::operator() (ast_container& node, modifier_token const* token) const {
+    switch (token->type) {
+        case modifier_t::m_const:
+            node.type.mod_const = true;
+            break;
+        case modifier_t::m_ptr:
+            node.type.mod_ptr = true;
+            break;
+        case modifier_t::m_ref:
+            node.type.mod_ref = true;
+            break;
+        default:
+            std::cerr << "parser bad container modifier\n"; 
+            throw std::runtime_error("parser: parse failure"); 
+    }
+}
+
+void parser::parser_ast_visitor::operator() (ast_container& node, type_token const* token) const {
+    node.name = token->value;
+}
+
+
 void parser::parser_ast_visitor::operator() (ast_include& node, identifier_token const* token) const {
     // expect parser_scope::preprocessor
     // if (my_parser != parser_scope::preprocessor) {
     //     std::cerr << "parser unexpected include within scope '" << my_parser.current_scope() << "'\n"; 
     //     throw std::runtime_error("parser: parse failure"); 
     // }
-    node.name = token->value;
-}
-
-void parser::parser_ast_visitor::operator() (ast_struct& node, identifier_token const* token) const {
     node.name = token->value;
 }
 

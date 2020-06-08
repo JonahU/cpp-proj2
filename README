@@ -2,3 +2,5 @@ TODO
 
 -implemented tokenizer (visitor patter) before duck typing lecture, implemented parser (variant + visit) after duck typing lecture
 -considered multiple variants for lookup in parser: https://www.bfilipek.com/2018/09/visit-variants.html
+-no nested structs
+-no nested templates (started implementing but decided to prioritize on other things)
