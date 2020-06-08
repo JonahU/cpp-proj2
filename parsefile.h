@@ -137,10 +137,11 @@ struct parser_ast_visitor { // Note: doesn't inherit from ast_visitor_base becau
     void operator() (ast_basic_variable& node, type_token       const* token) const;
 
     void operator() (ast_container& node, container_token  const* token) const;
+    void operator() (ast_container& node, identifier_token const* token) const;
     void operator() (ast_container& node, modifier_token   const* token) const;
     void operator() (ast_container& node, type_token       const* token) const;
 
-    // void operator() (ast_function&, identifier_token const* token) const; // no use for this currently
+    // void operator() (ast_function&, identifier_token const* token) const; // not used currently
 
     void operator() (ast_include& node, identifier_token const* token) const;
 
@@ -208,33 +209,35 @@ struct parser_token_visitor : token_visitor_base {
         parser_scope prev_scope = parser_scope::unknown;
         switch (token.type) {
             case symbol_t::s_quot:
-                if (my_parser == parser_scope::preprocessor) {
+                if (my_parser == parser_scope::preprocessor)
                     my_parser += parser_scope::stringlit;
-                } else if (my_parser == parser_scope::stringlit) {
+                else if (my_parser == parser_scope::stringlit)
                     my_parser -= parser_scope::stringlit;
-                }
                 break;
+
             case symbol_t::s_comma:
                 my_parser -= parser_scope::variable;
                 break;
+
             case symbol_t::s_lpar:
                 my_parser += parser_scope::function_decl;
                 my_parser.push_node<ast_function>();
                 break;
+
             case symbol_t::s_rpar:
-                if (my_parser == parser_scope::variable) {
+                if (my_parser == parser_scope::variable)
                     my_parser -= parser_scope::variable; // last function param
-                }
                 my_parser -= parser_scope::function_decl;
                 my_parser.pop_node<ast_function>();
                 break;
+
             case symbol_t::s_lcub:
-                if (my_parser == parser_scope::struct_decl) {
+                if (my_parser == parser_scope::struct_decl)
                     my_parser += parser_scope::struct_def;
-                } else if (my_parser == parser_scope::function_decl) {
+                else if (my_parser == parser_scope::function_decl)
                     my_parser += parser_scope::function_def;
-                }
                 break;
+
             case symbol_t::s_rcub:
                 if (my_parser == parser_scope::struct_def) {
                     my_parser -= parser_scope::struct_def;
@@ -243,27 +246,26 @@ struct parser_token_visitor : token_visitor_base {
                     my_parser -=parser_scope::function_def;
                 }
                 break;
+
             case symbol_t::s_semi:
                 prev_scope = my_parser.current_scope();
                 --my_parser;
                 if (my_parser.node_exists() &&
                     my_parser == parser_scope::global &&
                     prev_scope == parser_scope::variable)
-                {
-                    my_parser.pop_node<ast_basic_variable>();
-                    // TODO: what about containers at global scope?
-                    // my_parser.pop_node<ast_container>();
-                }
+                        my_parser.pop_node_global_variable();
                 break;
+
             case symbol_t::s_pound:
                 my_parser += parser_scope::preprocessor;
                 my_parser.push_node<ast_include>();
                 break;
+
             case symbol_t::s_lt:
-                if (my_parser != parser_scope::preprocessor) {
+                if (my_parser != parser_scope::preprocessor)
                     my_parser += parser_scope::template_;
-                }
                 break;
+
             case symbol_t::s_gt:
                 if (my_parser == parser_scope::preprocessor) {
                     my_parser -= parser_scope::preprocessor;
@@ -400,6 +402,14 @@ struct parser_token_visitor : token_visitor_base {
         }
     }
 
+    void pop_node_global_variable() {
+        std::visit(overloaded {
+            [this](ast_basic_variable&){ pop_node<ast_basic_variable>(); },
+            [this](ast_container&)     { pop_node<ast_container>(); move_node_to_ast(); },
+            [this](auto&)              { throw std::runtime_error("invalid call to pop_node_global_variable()"); }
+        }, current_node());
+    }
+
     template <class Node> // TODO: enable if
     void pop_node() {
         if (!std::holds_alternative<Node>(current_node()))
@@ -516,6 +526,11 @@ void parser::parser_ast_visitor::operator() (ast_basic_variable& node, type_toke
 void parser::parser_ast_visitor::operator() (ast_container& node, container_token const* token) const {
     node.type.type = token->type;
 }
+
+void parser::parser_ast_visitor::operator() (ast_container& node, identifier_token const* token) const {
+    node.name = token->value;
+}
+
 
 void parser::parser_ast_visitor::operator() (ast_container& node, modifier_token const* token) const {
     switch (token->type) {

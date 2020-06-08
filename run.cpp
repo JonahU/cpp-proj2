@@ -10,7 +10,6 @@ using namespace proj2;
     - boost python (or cpython API?)
     - c++ codegen
     - python codegen
-    - inline container (global scope)
     - tokenizer string literal (for preprocessor #include)
     - tokenizer func def ?
     - default values ?
