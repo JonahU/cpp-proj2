@@ -12,10 +12,11 @@ using namespace proj2;
 
     - tokenizer string literal + backslash for preprocessor #include (see examples/include.h)
     - test tuple
-    - convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
-    - std::reverse
+    - std::reverse in extract_members()
+    - [not possible?] convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
 
     - enable if templates in parser
+    - clean up code + remove logging
 
     - versioned namespaces?
 

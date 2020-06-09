@@ -153,7 +153,7 @@ struct parser_ast_visitor { // Note: doesn't inherit from ast_visitor_base becau
 };
 
 struct parser_token_visitor : token_visitor_base {
-    // Note: lots of annoying boilerplate in this class, could metaprogramming could help?
+    // Note: lots of annoying boilerplate in this class, metaprogramming would be nice but virtuals can't be templated, hmm...
     parser& my_parser;
     parser_token_visitor(parser& _my_parser) : my_parser(_my_parser) {}
 
