@@ -10,7 +10,7 @@ using namespace proj2;
     - c++ codegen
     - python codegen
 
-    - tokenizer string literal (for preprocessor #include "header.h")
+    - tokenizer string literal + backslash for preprocessor #include (see examples/include.h)
     - test tuple
     - convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
     - std::reverse
@@ -19,6 +19,7 @@ using namespace proj2;
 
     - versioned namespaces?
 
+    - comments support ? // + /*
     - tokenizer func def ?
     - default values ?
     - string literal ?
