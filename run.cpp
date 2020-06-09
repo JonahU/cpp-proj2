@@ -6,11 +6,19 @@ using namespace std;
 using namespace proj2;
 
 /* TODO:
-    - parser
     - boost python (or cpython API?)
     - c++ codegen
     - python codegen
-    - tokenizer string literal (for preprocessor #include)
+
+    - tokenizer string literal (for preprocessor #include "header.h")
+    - test tuple
+    - convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
+    - std::reverse
+
+    - enable if templates in parser
+
+    - versioned namespaces?
+
     - tokenizer func def ?
     - default values ?
     - string literal ?

@@ -12,7 +12,7 @@
 
 namespace proj2 {
 
-// helper type for the visitor in pop_node() (Source: cppreference.com)
+// helper type for using std::visit with lambdas (Source: cppreference.com)
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 // explicit deduction guide (not needed as of C++20)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
@@ -422,14 +422,14 @@ struct parser_token_visitor : token_visitor_base {
 
     template <class Node> // TODO: enable if?
     void extract_members() {
-        std::vector<ast_variable> members; // TODO: improve this? it is wasteful (TODO: fix members are in reverse order)
+        std::vector<ast_variable> members; // TODO: improve this? it is wasteful (TODO: fix members are in reverse order, std::reverse?)
 
         // extract struct members, func params or template types
         while (!std::holds_alternative<Node>(current_node())) {
             std::visit(overloaded {
                 [&members](ast_basic_variable&& node){ members.push_back(std::move(node)); },
                 [&members](ast_container&&      node){ members.push_back(std::move(node)); },
-                [&members](auto&&               node){ throw std::runtime_error("parser: invalid call to pop_node()"); }
+                [&members](auto&&               node){ throw std::runtime_error("parser: invalid call to extract_members() [extraction step]"); }
             }, current_node_pop());
         }
 
@@ -437,18 +437,19 @@ struct parser_token_visitor : token_visitor_base {
         std::visit(overloaded {
             [&members](ast_function&  node){ node.params  = std::move(members); },
             [&members](ast_struct&    node){ node.members = std::move(members); },
-            [&members](ast_container& node){ // convert ast_variables -> ast_type_basic
+            [&members](ast_container& node){
+                // convert vector<ast_variable> -> vector<ast_type_basic>
                 for (ast_variable& var: members) {
-                    ast_basic_variable basic_var = std::get<ast_basic_variable>(var); // will throw if template contains a container
+                    ast_basic_variable& basic_var = std::get<ast_basic_variable>(var); // will throw bad_variant_access if template contains a container
                     node.type.template_types.push_back(std::move(basic_var.type));
                 }
             },
-            [&members](auto& node){ throw std::runtime_error("parser: invalid call to pop_node()"); }
+            [&members](auto& node){ throw std::runtime_error("parser: invalid call to extract_members() [move step]"); }
         }, current_node());
     }
 
     void move_function_to_ast() {
-        // Note: this function will throw if there is no return value
+        // Note: this function will throw if there is no function return value
         ast_node the_function   = current_node_pop();
         ast_node the_return_val = current_node_pop();
         ast_function& func_ref = std::get<ast_function>(the_function);
