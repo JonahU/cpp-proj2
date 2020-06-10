@@ -18,10 +18,6 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 
-struct ast_basic_variable;
-struct ast_container;
-using ast_variable = std::variant<ast_basic_variable, ast_container>;
-
 struct ast_type_basic {
     type_t      type;
     bool        mod_const;
@@ -50,6 +46,8 @@ struct ast_container {
     ast_type_container type;
     std::string        name;
 };
+
+using ast_variable = std::variant<ast_basic_variable, ast_container>;
 
 struct ast_function {
     ast_type                  return_type;
