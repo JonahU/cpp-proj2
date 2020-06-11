@@ -4,11 +4,11 @@
 
 #include <boost/python.hpp>
 
-char const* hello() {
+char const* world() {
     return "hello, world";
 }
 
-BOOST_PYTHON_MODULE(simple) {
+BOOST_PYTHON_MODULE(hello) {
     using namespace boost::python;
-    def("hello", hello);
+    def("world", world);
 }

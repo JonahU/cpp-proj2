@@ -9,13 +9,14 @@
 namespace proj2 {
 
 struct headerfile {
-    std::string filename;
-    std::string extension;
+    std::string_view source;
+    std::string      filename;
+    std::string      extension;
 };
 
 headerfile split_headerfile (std::string_view sv) { 
     auto [ _, filename, extension ] = ctre::match<headerfile_regex>(sv);
-    return { filename.to_string(), extension.to_string() };
+    return { sv, filename.to_string(), extension.to_string() };
 }
 
 struct cpptopy_ast_visitor : ast_visitor_base {
