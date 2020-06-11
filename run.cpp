@@ -1,4 +1,5 @@
 #include <iostream>
+#include "cpptopy.h"
 #include "parsefile.h"
 #include "tokenizer.h"
 
@@ -10,9 +11,11 @@ using namespace proj2;
     - c++ codegen
     - python codegen
 
-    - tokenizer string literal + backslash for preprocessor #include (see examples/include.h)
     - test tuple
     - std::reverse in extract_members()
+    - indent stream
+
+    - newline required at bottom of input header file (bug?)
 
     - [not possible?] convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
 
@@ -44,5 +47,8 @@ int main(int argc, char* argv[]) {
     }
 
     auto tokens = tokenize(ifs);
-    auto parsed = parse(tokens);    
+    auto parsed = parse(tokens); 
+    cpptopy(argv[1], parsed);
+
+    return 0;
 }

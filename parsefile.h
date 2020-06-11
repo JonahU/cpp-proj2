@@ -75,11 +75,11 @@ using ast = std::vector<ast_node>;
 
 // helper abstract base class for operating on ast nodes
 struct ast_visitor_base {
-    virtual void operator() (ast_basic_variable&) const = 0;
-    virtual void operator() (ast_container&)      const = 0;
-    virtual void operator() (ast_function&)       const = 0;
-    virtual void operator() (ast_include&)        const = 0;
-    virtual void operator() (ast_struct&)         const = 0;
+    virtual void operator() (ast_basic_variable const&) const = 0;
+    virtual void operator() (ast_container      const&) const = 0;
+    virtual void operator() (ast_function       const&) const = 0;
+    virtual void operator() (ast_include        const&) const = 0;
+    virtual void operator() (ast_struct         const&) const = 0;
 };
 
 
@@ -207,10 +207,15 @@ struct parser_token_visitor : token_visitor_base {
         parser_scope prev_scope = parser_scope::unknown;
         switch (token.type) {
             case symbol_t::s_quot:
-                if (my_parser == parser_scope::preprocessor)
+                if (my_parser == parser_scope::preprocessor) {
                     my_parser += parser_scope::stringlit;
-                else if (my_parser == parser_scope::stringlit)
+                } else if (my_parser == parser_scope::stringlit) {
                     my_parser -= parser_scope::stringlit;
+                    if (my_parser == parser_scope::preprocessor) {
+                        my_parser -= parser_scope::preprocessor;
+                        my_parser.pop_node<ast_include>();
+                    }
+                }
                 break;
 
             case symbol_t::s_comma:
