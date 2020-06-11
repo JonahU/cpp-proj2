@@ -11,7 +11,6 @@ using namespace proj2;
     - c++ codegen
     - python codegen
 
-    - test tuple
     - std::reverse in extract_members()
     - indent stream
 

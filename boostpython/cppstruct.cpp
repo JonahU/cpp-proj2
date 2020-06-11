@@ -11,15 +11,16 @@
 struct Rocket {
     double      max_speed;
     long        price;
-    // int const   number_of_engines; // const = readonly
     int         number_of_engines;
     std::string name;
 
-    // vector conversion boilerplate
-    bool operator==(Rocket const& rhs) {
-        return this == &rhs;
-    }
+    Rocket& operator=(Rocket const& other) = default;
 };
+
+// vector conversion boilerplate
+bool operator==(Rocket const& lhs, Rocket const& rhs) {
+    return &lhs == &rhs;
+}
 
 Rocket make_rocket_v1() {
     return {
@@ -64,10 +65,9 @@ std::map<std::string,Rocket> map_to_python() {
 BOOST_PYTHON_MODULE(cppstruct) {
     using namespace boost::python;
 
-    class_<Rocket>("Rocket", no_init) // no_init required because of const member
+    class_<Rocket>("Rocket")
         .def_readwrite("max_speed", &Rocket::max_speed)
         .def_readwrite("price", &Rocket::price)
-        // .def_readonly("number_of_engines", &Rocket::number_of_engines)
         .def_readwrite("number_of_engines", &Rocket::number_of_engines)
         .def_readwrite("name", &Rocket::name);
 

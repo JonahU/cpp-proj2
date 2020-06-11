@@ -36,8 +36,8 @@ void cpptopy(std::string_view sourcefile, std::unique_ptr<ast> const& my_ast) {
     std::ofstream ofs_py(file_py);
     std::ofstream ofs_cpp(file_cpp);
 
-    ofs_py << "#hello world";
-    ofs_cpp << "//hello world";
+    ofs_py << "\"\"\"AUTO GENERATED PYTHON FILE BY PROJECT2\"\"\"";
+    ofs_cpp << "/*AUTO GENERATED C++ FILE BY PROJECT2*/";
 
     cpptopy_ast_visitor my_ast_visitor;
     for (auto const& node : *my_ast) {
