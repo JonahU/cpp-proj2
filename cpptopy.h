@@ -68,15 +68,20 @@ protected:
     mpcs::IndentStream ifs;
     headerfile const& sourcefile;
     std::unique_ptr<ast> const& my_ast;
-    enum class state { header, function_stubs, boostpython };
+    enum class state { none, header, stubs, boostpython, done };
     state my_state;
 
-    code_generator_base(std::string const& path, headerfile const& _sourcefile, std::unique_ptr<ast> const& _my_ast)
-        : ofs(path), ifs(ofs), sourcefile(_sourcefile), my_ast(_my_ast), my_state(state::header) {}
+    code_generator_base(
+        std::string const& path,
+        headerfile const& _sourcefile,
+        std::unique_ptr<ast> const& _my_ast)
+        : ofs(path), ifs(ofs), sourcefile(_sourcefile), my_ast(_my_ast), my_state(state::none) {}
 
+    bool generating_code()           const { return my_state != state::none; }
     bool generating_headers()        const { return my_state == state::header; }
-    bool generating_function_stubs() const { return my_state == state::function_stubs; }
+    bool generating_stubs()          const { return my_state == state::stubs; }
     bool generating_boostpython()    const { return my_state == state::boostpython; }
+    bool generating_code_finished()  const { return my_state == state::done; }
 
     virtual ~code_generator_base() = default;
 };
@@ -98,9 +103,9 @@ struct cppfile_ast_visitor : ast_visitor_base {
 
     virtual void operator() (ast_include const&) const override { std::cout << "cpp visiting ast_include\n"; }
     
-    virtual void operator() (ast_struct const&) const override {
-        // TODO: visit + construct boostpython class_
+    virtual void operator() (ast_struct const& node) const override {
         std::cout << "cpp visiting ast_struct\n";
+        code_generator.struct_(node);
     }
 };
 
@@ -117,22 +122,51 @@ struct cppfile_ast_visitor : ast_visitor_base {
             << "}\n";
     }
 
-    void boostpython_indexing(std::string_view custom_type, container_t c_type) {
+    // void boostpython_indexing(std::string_view custom_type, container_t c_type) {
+        // TODO
         // ifs << indexing_suite stuff
-    }
+    // }
 
     void basic_variable(ast_basic_variable const& astbv) {
-        type_basic(astbv.type);
-        ifs << astbv.name;
+        if (!current_function.empty())
+            type_basic(astbv.type);
+        else if(!current_struct.empty()) {
+            ifs << "\n.def_readwrite(\""
+                << astbv.name
+                << "\", &"
+                << current_struct
+                << "::"
+                << astbv.name
+                << ")";
+        }
+        if (generating_stubs())
+            ifs << astbv.name; 
     }
 
     void container(ast_container const& astcon) {
-        type_container(astcon.type);
-        ifs << astcon.name;
+        if (!current_function.empty())
+            type_container(astcon.type);
+        else if(!current_struct.empty()) {
+            ifs << "\n.def_readwrite(\""
+                << astcon.name
+                << "\", &"
+                << current_struct
+                << "::"
+                << astcon.name
+                << ")";
+        }
+        if (generating_stubs())
+            ifs << astcon.name;
     }
 
     void function(ast_function const& astfunc) {
-        if (generating_function_stubs()) {
+        current_function = astfunc.name;
+        if (generating_headers()) {
+            type(astfunc.return_type);
+            for (auto const& astvar : astfunc.params) {
+                variable(astvar);
+            }
+        } else if (generating_stubs()) {
             type(astfunc.return_type);
             ifs << astfunc.name << '(';
 
@@ -154,6 +188,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
             type(astfunc.return_type);
             ifs << ");\n\n";
         }
+        current_function = "";
     }
 
     void header() {
@@ -162,11 +197,13 @@ MPCS 51045 PROJECT 2
 AUTO GENERATED C++ FILE
 */
 
-)c++"
-            << "#include <boost/python.hpp>\n"
-            << "#include <boost/python/suite/indexing/map_indexing_suite.hpp>\n" // TODO: only include map + vector headers if necessary
-            << "#include <boost/python/suite/indexing/vector_indexing_suite.hpp>\n\n"
-            << "#include \"" << sourcefile.filename << "\"\n\n";
+#include <boost/python.hpp>
+)c++";
+        if (include_map_indexing_suite_hpp)
+            ifs << "#include <boost/python/suite/indexing/map_indexing_suite.hpp>\n";
+        if (include_vector_indexing_suite_hpp)
+            ifs << "#include <boost/python/suite/indexing/vector_indexing_suite.hpp>\n";
+        ifs << "\n#include \"" << sourcefile.filename << "\"\n\n";
     }
 
 
@@ -183,6 +220,26 @@ AUTO GENERATED C++ FILE
             << "}\n\n";
     }
 
+    void struct_(ast_struct const& aststruct) {
+        current_struct = aststruct.name;
+        if (generating_headers()) {
+            // TODO check for containers in members
+        } else if (generating_boostpython()) {
+            ifs << "class_<"
+                << aststruct.name
+                << ">(\""
+                << aststruct.name
+                << "\")"
+                << mpcs::indent;
+            for (auto const& member : aststruct.members) {
+                variable(member);
+            }
+            ifs << ";\n\n"
+                << mpcs::unindent;
+        }
+        current_struct = "";
+    }
+
     void type(ast_type const& asttype) {
         std::visit(overloaded {
             [this](ast_type_basic     const& tb  ){ type_basic    (tb); },
@@ -191,16 +248,20 @@ AUTO GENERATED C++ FILE
     }
 
     void type_basic(ast_type_basic const& asttype, container_t c_type = container_t::c_unknown) {
-        if (generating_function_stubs()) {
+        if (generating_headers()) {
+            if (c_type != container_t::c_unknown && asttype.type == type_t::t_custom) {
+                comparison_required.insert(asttype.custom_typename);
+                // indexing_required.insert({ asttype.custom_typename, c_type});
+                if (c_type == container_t::c_map)
+                    include_map_indexing_suite_hpp = true;
+                else if (c_type == container_t::c_vector)
+                    include_vector_indexing_suite_hpp = true;
+            }
+        } else if (generating_stubs()) {
             if (asttype.mod_unsigned)
                 ifs << "unsigned ";
             if (asttype.type == type_t::t_custom) {
                 ifs << asttype.custom_typename;
-                if (c_type != container_t::c_unknown) {
-                    // Consider moving this logic into a first "header" pass 
-                    comparison_required.insert(asttype.custom_typename);
-                    indexing_required.insert({ asttype.custom_typename, c_type});
-                }
             } else
                 ifs << asttype.type;
             ifs << ' ';
@@ -217,11 +278,15 @@ AUTO GENERATED C++ FILE
     }
 
     void type_container(ast_type_container const& asttype) {
-        if (generating_function_stubs()) {
+        if (generating_headers()) {
+            for (auto const& typebasic : asttype.template_types) {
+                type_basic(typebasic, asttype.type);
+            }
+        } else if (generating_stubs()) {
             ifs << asttype.type;
             ifs << '<';
             for (auto typebasic = asttype.template_types.cbegin(); typebasic != asttype.template_types.cend(); typebasic++) {
-                type_basic(*typebasic, asttype.type);
+                type_basic(*typebasic);
                 if (std::next(typebasic) != asttype.template_types.cend())
                     ifs << ", "; // ostream_joiner would be nice here...
             }
@@ -251,22 +316,37 @@ AUTO GENERATED C++ FILE
     }
 
     cppfile_ast_visitor my_ast_visitor;
-    std::set<std::string_view>              comparison_required;
-    std::map<std::string_view, container_t> indexing_required;
+    std::set<std::string_view>                   comparison_required;
+    std::map<std::string_view, std::string_view> indexing_required;
+    bool                                         include_map_indexing_suite_hpp;
+    bool                                         include_vector_indexing_suite_hpp;
+    // bool                                         writing_container;
+    std::string_view                             current_function;
+    std::string_view                             current_struct;
 public:
     cplusplus_generator(headerfile const& source, std::unique_ptr<ast> const& my_ast) : 
         code_generator_base(source.cppfile, source, my_ast),
         my_ast_visitor(*this),
         comparison_required(),
-        indexing_required() {}
+        indexing_required(),
+        include_map_indexing_suite_hpp(false),
+        include_vector_indexing_suite_hpp(false),
+        current_function(),
+        current_struct()
+        {}
 
+    // first pass
     void generate_header() {
+        my_state = state::header;
+        for (auto const& node : *my_ast) {
+            std::visit(my_ast_visitor, node);
+        }
         header();
     }
 
-    // first pass
-    void generate_function_stubs() {
-        my_state = state::function_stubs;
+    // second pass
+    void generate_stubs() {
+        my_state = state::stubs;
         for (auto const& node : *my_ast) {
             std::visit(my_ast_visitor, node);
         }
@@ -275,7 +355,7 @@ public:
         }
     }
 
-    // second pass
+    // third pass
     void generate_boostpython() {
         my_state = state::boostpython;
         boostpython_start();
@@ -284,9 +364,10 @@ public:
         }
         for (auto container : indexing_required) {
             // TODO: make this work
-            boostpython_indexing(container.first, container.second);
+            // boostpython_indexing(container.first, container.second);
         }
         boostpython_end();
+        my_state = state::done;
     }
 };
 
@@ -300,10 +381,32 @@ struct pythonfile_ast_visitor : ast_visitor_base {
     virtual void operator() (ast_container      const&) const override { std::cout << "python visiting ast_container\n"; }
     virtual void operator() (ast_function       const&) const override { std::cout << "python visiting ast_function\n"; }
     virtual void operator() (ast_include        const&) const override { std::cout << "python visiting ast_include\n"; }
-    virtual void operator() (ast_struct         const&) const override { std::cout << "python visiting ast_struct\n"; }
+    
+    virtual void operator() (ast_struct const& node) const override {
+        std::cout << "python visiting ast_struct\n";
+        code_generator.class_(node);
+    }
 };
 
     pythonfile_ast_visitor my_ast_visitor;
+
+    void class_(ast_struct const& aststruct) {
+        if (generating_stubs()) {
+            if (structs_seen.find(aststruct.name) == structs_seen.end()) {
+                ifs << "\nnew_"
+                    << aststruct.name
+                    << " = "
+                    << sourcefile.modulename
+                    << '.'
+                    << aststruct.name
+                    << "\nprint( dir("
+                    << "new_"
+                    << aststruct.name
+                    << ") )\n";
+                structs_seen.insert(aststruct.name);
+            }
+        }
+    }
 
     void header() {
         ifs << R"python("""
@@ -312,29 +415,42 @@ AUTO GENERATED PYTHON FILE
 """
 
 )python";
-        ifs << "import " << sourcefile.modulename << '\n';
+        ifs << "import " << sourcefile.modulename << "\n";
     }
 
+    std::set<std::string_view, std::less<>> structs_seen;
 public:
     python_generator(headerfile const& source, std::unique_ptr<ast> const& my_ast) :
         code_generator_base(source.pyfile, source, my_ast),
-        my_ast_visitor(*this) {}
+        my_ast_visitor(*this),
+        structs_seen()
+        {}
 
     void generate_header() {
+        my_state = state::header;
         header();
+    }
+
+    void generate_stubs() {
+        my_state = state::stubs;
+        for (auto const& node : *my_ast) {
+            std::visit(my_ast_visitor, node);
+        }
+        my_state = state::done;
     }
 };
 
 void write_cppfile(headerfile const& sourcefile, std::unique_ptr<ast> const& my_ast) {
     auto cppgen = cplusplus_generator(sourcefile, my_ast);
     cppgen.generate_header();
-    cppgen.generate_function_stubs();
+    cppgen.generate_stubs();
     cppgen.generate_boostpython();
 }
 
 void write_pythonfile(headerfile const& sourcefile, std::unique_ptr<ast> const& my_ast) {
     auto pythongen = python_generator(sourcefile, my_ast);
     pythongen.generate_header();
+    pythongen.generate_stubs();
 }
 
 void cpptopy(std::string_view sourcefile, std::unique_ptr<ast> const& my_ast) {    

@@ -34,9 +34,11 @@ using namespace proj2;
     - no nested struct
     - aggregate, no const (is this POD?)
     - newline at end of file
-    - no extraneous parentheses 
+    - no extraneous parentheses
+    - no operator functions
     - supported keywords: int, double, vector etc...
     - no tuple
+    - no forward declarations
 */
 
 int main(int argc, char* argv[]) {

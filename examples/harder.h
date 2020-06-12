@@ -9,6 +9,10 @@ struct Rocket {
     std::string  name;
 };
 
+struct LunarRover {
+    Rocket*     my_location;
+};
+
 inline void launch(Rocket r, std::string& when, std::string& where);
 
 inline void launch_many(std::vector<Rocket>& rs, std::string& when, std::string& where);
