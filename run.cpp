@@ -7,12 +7,8 @@ using namespace std;
 using namespace proj2;
 
 /* TODO:
-    - boost python (or cpython API?)
     - c++ codegen
     - python codegen
-
-    - std::reverse in extract_members()
-    - indent stream
 
     - newline required at bottom of input header file (bug?)
 
@@ -31,6 +27,16 @@ using namespace proj2;
 
     - --emit-tokens flag ?
     - --emit-ast ?
+
+    RULES:
+    - no overloading
+    - no nested template
+    - no nested struct
+    - aggregate, no const (is this POD?)
+    - newline at end of file
+    - no extraneous parentheses 
+    - supported keywords: int, double, vector etc...
+    - no tuple
 */
 
 int main(int argc, char* argv[]) {

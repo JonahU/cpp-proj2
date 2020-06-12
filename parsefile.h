@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <stack>
@@ -310,6 +311,8 @@ struct parser_token_visitor : token_visitor_base {
     parser_token_visitor        const  my_token_visitor;
     parser_ast_visitor          const  my_ast_visitor;
     token_tag                          current_token_tag;
+    std::vector<ast_variable>          temp_extraction_members;
+
 
     void parse_tokens() {
         scope.push(parser_scope::global);
@@ -425,30 +428,30 @@ struct parser_token_visitor : token_visitor_base {
 
     template <class Node> // TODO: enable if?
     void extract_members() {
-        std::vector<ast_variable> members; // TODO: improve this? it is wasteful (TODO: fix members are in reverse order, std::reverse?)
-
         // extract struct members, func params or template types
         while (!std::holds_alternative<Node>(current_node())) {
             std::visit(overloaded {
-                [&members](ast_basic_variable&& node){ members.push_back(std::move(node)); },
-                [&members](ast_container&&      node){ members.push_back(std::move(node)); },
-                [&members](auto&&               node){ throw std::runtime_error("parser: invalid call to extract_members() [extraction step]"); }
+                [this](ast_basic_variable&& node){ temp_extraction_members.push_back(std::move(node)); },
+                [this](ast_container&&      node){ temp_extraction_members.push_back(std::move(node)); },
+                [this](auto&&               node){ throw std::runtime_error("parser: invalid call to extract_members() [extraction step]"); }
             }, current_node_pop());
         }
+        std::reverse(temp_extraction_members.begin(), temp_extraction_members.end()); // correct the order of params/ types
 
         // move members into struct or params into func or types in template
         std::visit(overloaded {
-            [&members](ast_function&  node){ node.params  = std::move(members); },
-            [&members](ast_struct&    node){ node.members = std::move(members); },
-            [&members](ast_container& node){
+            [this](ast_function&  node){ node.params  = std::move(temp_extraction_members); },
+            [this](ast_struct&    node){ node.members = std::move(temp_extraction_members); },
+            [this](ast_container& node){
                 // convert vector<ast_variable> -> vector<ast_type_basic>
-                for (ast_variable& var: members) {
+                for (ast_variable& var: temp_extraction_members) {
                     ast_basic_variable& basic_var = std::get<ast_basic_variable>(var); // will throw bad_variant_access if template contains a container
                     node.type.template_types.push_back(std::move(basic_var.type));
                 }
             },
-            [&members](auto& node){ throw std::runtime_error("parser: invalid call to extract_members() [move step]"); }
+            [this](auto& node){ throw std::runtime_error("parser: invalid call to extract_members() [move step]"); }
         }, current_node());
+        temp_extraction_members.clear();
     }
 
     void move_function_to_ast() {
@@ -486,7 +489,8 @@ public:
             ast_nodes_under_construction(),
             my_token_visitor(*this),
             my_ast_visitor(*this),
-            current_token_tag() {
+            current_token_tag(),
+            temp_extraction_members() {
         parse_tokens();
         check_for_failure();
     }

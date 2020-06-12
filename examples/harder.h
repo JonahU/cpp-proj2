@@ -11,7 +11,7 @@ struct Rocket {
 
 inline void launch(Rocket r, std::string& when, std::string& where);
 
-inline void launch(std::vector<Rocket>& rs, std::string& when, std::string& where);
+inline void launch_many(std::vector<Rocket>& rs, std::string& when, std::string& where);
 
 inline std::vector<Rocket>* make_rockets(int how_many);
 
