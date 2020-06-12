@@ -14,7 +14,7 @@
 namespace proj2 {
 
 constexpr auto identifier_regex = ctll::fixed_string{"^[a-zA-Z_]+\\w*$"};
-constexpr auto headerfile_regex = ctll::fixed_string{"^([/\\w_]+)\\.(h|hh|hpp|hxx|h\\+\\+)$"};
+constexpr auto headerfile_regex = ctll::fixed_string{"^[/\\w_]+\\.(?:h|hh|hpp|hxx|h\\+\\+)$"};
 constexpr auto isspace_regex    = ctll::fixed_string{"^\\s$"};
 constexpr auto keyword_regex    = ctll::fixed_string{"^(struct)|(inline)|(include)|(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(std::tuple)|(unsigned)|(const)$"};
 constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(')|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " ' , ( ) { } ; # < > * &
