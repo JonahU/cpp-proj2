@@ -6,36 +6,28 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <tuple>
 
 struct Rocket {
     double      max_speed;
     long        price;
     int         number_of_engines;
     std::string name;
-
-    Rocket& operator=(Rocket const& other) = default;
 };
 
-// vector conversion boilerplate
+// conversion boilerplate
 bool operator==(Rocket const& lhs, Rocket const& rhs) {
     return &lhs == &rhs;
 }
 
-Rocket make_rocket_v1() {
-    return {
-        100.0,
-        333222000,
-        2,
-        "Rocket v1"
-    };
+void launch_rocket_v1(Rocket& r, std::string& where, char const* when) {
+    std::cout
+        << "launching rocket " << r.name << '\n'
+        << "speed = " <<  r.max_speed << "mph\n"
+        << "location = " << where << '\n'
+        << "time = " << when << '\n';
 }
 
-void launch_rocket_v1(Rocket& r) {
-    std::cout << "launching rocket " << r.name << '\n';
-}
-
-std::vector<Rocket> vector_to_python() {
+std::vector<Rocket> vector_example() {
     std::vector<Rocket> rockets = {
         { 100.0, 333222000, 2, "Rocket v1" },
         { 200.0, 444222000, 4, "Rocket v2" },
@@ -44,7 +36,7 @@ std::vector<Rocket> vector_to_python() {
     return rockets;
 }
 
-std::vector<Rocket>* vector_star_to_python() {
+std::vector<Rocket>* vector_star_example() {
     std::vector<Rocket>* rockets_ptr = new std::vector<Rocket>{
         { 100.0, 333222000, 2, "Rocket v1" },
         { 200.0, 444222000, 4, "Rocket v2" },
@@ -53,7 +45,7 @@ std::vector<Rocket>* vector_star_to_python() {
     return rockets_ptr;
 }
 
-std::map<std::string,Rocket> map_to_python() {
+std::map<std::string, Rocket> map_example() {
     std::map<std::string, Rocket> rockets = {
         { "apollo11", { 100.0, 333222000, 2, "Rocket v1" } },
         { "apollo12", { 200.0, 444222000, 4, "Rocket v2" } },
@@ -62,7 +54,21 @@ std::map<std::string,Rocket> map_to_python() {
     return rockets;
 }
 
-BOOST_PYTHON_MODULE(cppstruct) {
+std::map<std::string, Rocket> global_map = map_example();
+
+std::map<std::string, Rocket>& get_global_map() {
+    return global_map;
+}
+
+void print_global_map() {
+    std::cout << "global_map : ";
+    for(auto& element: global_map) {
+        std::cout << element.first << "=" << element.second.name << ", ";
+    }
+    std::cout << '\n';
+}
+
+BOOST_PYTHON_MODULE(container) {
     using namespace boost::python;
 
     class_<Rocket>("Rocket")
@@ -71,20 +77,22 @@ BOOST_PYTHON_MODULE(cppstruct) {
         .def_readwrite("number_of_engines", &Rocket::number_of_engines)
         .def_readwrite("name", &Rocket::name);
 
-    def("make_rocket_v1", make_rocket_v1);
 
     def("launch_rocket_v1", launch_rocket_v1);
 
 
     class_<std::vector<Rocket>>("vector_Rocket")
         .def(vector_indexing_suite<std::vector<Rocket>>());
-    def("vector_to_python", vector_to_python);
+    def("vector_example", vector_example);
 
-    def("vector_star_to_python", vector_star_to_python, return_value_policy<reference_existing_object>()); // Note: reference_existing_object works for both pointers and references
+    def("vector_star_example", vector_star_example, return_value_policy<reference_existing_object>()); // Note: reference_existing_object works for both pointers and references
 
 
     class_<std::map<std::string,Rocket>>("map_stringRocket")
         .def(map_indexing_suite<std::map<std::string,Rocket>>());
-    def("map_to_python", map_to_python);
+    def("map_example", map_example);
+
+    def("get_global_map", get_global_map, return_value_policy<reference_existing_object>());
+    def("print_global_map", print_global_map);
 
 }
