@@ -373,6 +373,7 @@ public:
 
 class python_generator : code_generator_base {
 
+// Note: definition here because of forward declaration problems (same issue above and in tokenizer)
 struct pythonfile_ast_visitor : ast_visitor_base {
     python_generator& code_generator;
     pythonfile_ast_visitor(python_generator& _code_generator) : code_generator(_code_generator) {}

@@ -74,7 +74,7 @@ using ast_node = std::variant<
     ast_struct>;
 using ast = std::vector<ast_node>;
 
-// helper abstract base class for operating on ast nodes
+// helper abstract base class for operating on ast nodes (used in cpptopy.h)
 struct ast_visitor_base {
     virtual void operator() (ast_basic_variable const&) const = 0;
     virtual void operator() (ast_container      const&) const = 0;
@@ -140,7 +140,7 @@ struct parser_ast_visitor { // Note: doesn't inherit from ast_visitor_base becau
     void operator() (ast_container& node, modifier_token   const* token) const;
     void operator() (ast_container& node, type_token       const* token) const;
 
-    // void operator() (ast_function&, identifier_token const* token) const; // not used currently
+    // void operator() (ast_function&, placeholder_token const* token) const; // not used currently
 
     void operator() (ast_include& node, identifier_token const* token) const;
 
@@ -281,7 +281,7 @@ struct parser_token_visitor : token_visitor_base {
                 }
                 break;
             default:
-                // Note: no char/string literal support yet
+                // Note: no char literal support yet
                 std::cerr << "unsupported symbol: " << token.value << "\n"; 
                 throw std::invalid_argument("parser: unsupported symbol"); 
         }
@@ -563,11 +563,6 @@ void parser::parser_ast_visitor::operator() (ast_container& node, type_token con
 
 
 void parser::parser_ast_visitor::operator() (ast_include& node, identifier_token const* token) const {
-    // expect parser_scope::preprocessor
-    // if (my_parser != parser_scope::preprocessor) {
-    //     std::cerr << "parser unexpected include within scope '" << my_parser.current_scope() << "'\n"; 
-    //     throw std::runtime_error("parser: parse failure"); 
-    // }
     node.name = token->value;
 }
 
