@@ -4,10 +4,12 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <variant>
+#include "ctre.hpp"
 #include "indentstream.h"
 #include "parsefile.h"
 
@@ -70,8 +72,23 @@ inline headerfile parse_headerfile(std::string_view headerpath) {
         std::move(no_extension)};
 }
 
+constexpr auto mangle_stl_container_regex
+    = ctll::fixed_string{"^(?:std::)?([a-zA-Z_]+\\w*)\\s*<\\s*(?:std::)?([a-zA-Z_]+\\w*)\\s*,?\\s*(?:std::)?([a-zA-Z_]+\\w*)?\\s*>$"};
+// there is a problem with clashing mangled names if for some reason you name your struct "string"
+// e.g. vector<string> & vector<std::string> will both be mangled as "vector_string"
+
 inline std::string mangle_name(std::string_view name) {
-    return "TODO";
+    if (auto [_, container_type, template_first, template_second] = ctre::match<mangle_stl_container_regex>(name); _) {
+        std::string mangled(container_type.to_string());
+        mangled += '_';
+        if (template_first)
+            mangled += template_first.to_view();
+        if (template_second)
+            mangled += template_second.to_view();
+        return mangled;
+    } else {
+        throw std::runtime_error("cpptopy: name mangling regex match failed");
+    }
 }
 
 class code_generator_base {
@@ -105,8 +122,8 @@ struct cppfile_ast_visitor : ast_visitor_base {
     cplusplus_generator& code_generator;
     cppfile_ast_visitor(cplusplus_generator& _code_generator) : code_generator(_code_generator) {}
 
-    virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; }
-    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; }
+    virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; } // TODO: handle free variable
+    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // TODO: handle free container
     
     virtual void operator() (ast_function const& node) const override {
         std::cout << "cpp visiting ast_function\n"; 
