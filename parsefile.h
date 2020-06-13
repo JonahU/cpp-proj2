@@ -98,7 +98,7 @@ enum class parser_scope {
 };
 
 // For error messages
-std::ostream& operator<< (std::ostream& os, parser_scope ps) {
+inline std::ostream& operator<< (std::ostream& os, parser_scope ps) {
     switch (ps) {
         case parser_scope::global        : return os << "global"       ;
         case parser_scope::preprocessor  : return os << "preprocessor" ;

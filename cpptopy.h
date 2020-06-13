@@ -14,28 +14,36 @@
 namespace proj2 {
 
 // Static reflection would be nice...
-std::ostream& operator<< (std::ostream& os, type_t tt) {
-    switch (tt) {
-        case type_t::t_char              : return os << "char"       ;
-        case type_t::t_custom            : return os << "custom"     ;
-        case type_t::t_double            : return os << "double"     ;
-        case type_t::t_float             : return os << "float"      ;
-        case type_t::t_int               : return os << "int"        ;
-        case type_t::t_long              : return os << "long"       ;
-        case type_t::t_short             : return os << "short"      ;
-        case type_t::t_string            : return os << "std::string";
-        case type_t::t_void              : return os << "void"       ;
-        default                          : return os << "unknown"    ;
+constexpr char const* to_string(container_t ct) {
+    switch (ct) {
+        case container_t::c_map          : return "std::map"   ;
+        case container_t::c_tuple        : return "std::tuple" ;
+        case container_t::c_vector       : return "std::vector";
+        default                          : return "unknown"    ;
     };
 }
 
-std::ostream& operator<< (std::ostream& os, container_t ct) {
-    switch (ct) {
-        case container_t::c_map          : return os << "std::map"   ;
-        case container_t::c_tuple        : return os << "std::tuple" ;
-        case container_t::c_vector       : return os << "std::vector";
-        default                          : return os << "unknown"    ;
+constexpr char const* to_string(type_t tt) {
+    switch (tt) {
+        case type_t::t_char              : return "char"       ;
+        case type_t::t_custom            : return "custom"     ;
+        case type_t::t_double            : return "double"     ;
+        case type_t::t_float             : return "float"      ;
+        case type_t::t_int               : return "int"        ;
+        case type_t::t_long              : return "long"       ;
+        case type_t::t_short             : return "short"      ;
+        case type_t::t_string            : return "std::string";
+        case type_t::t_void              : return "void"       ;
+        default                          : return "unknown"    ;
     };
+}
+
+inline std::ostream& operator<< (std::ostream& os, container_t ct) {
+    return os << to_string(ct);
+}
+
+inline std::ostream& operator<< (std::ostream& os, type_t tt) {
+    return os << to_string(tt);
 }
 
 struct headerfile {
@@ -48,7 +56,7 @@ struct headerfile {
 };
 
 // Note: not happy about the amount of string copying/ redundancy in this function
-headerfile parse_headerfile (std::string_view headerpath) { 
+inline headerfile parse_headerfile(std::string_view headerpath) { 
     std::filesystem::path filepath(headerpath);
     std::string filename(filepath.filename());
     size_t dot_index = filename.find_last_of('.');
@@ -60,6 +68,10 @@ headerfile parse_headerfile (std::string_view headerpath) {
         filepath.replace_extension(".cpp").relative_path(),
         filepath.replace_extension(".py").relative_path(),
         std::move(no_extension)};
+}
+
+inline std::string mangle_name(std::string_view name) {
+    return "TODO";
 }
 
 class code_generator_base {
@@ -122,15 +134,28 @@ struct cppfile_ast_visitor : ast_visitor_base {
             << "}\n";
     }
 
-    // void boostpython_indexing(std::string_view custom_type, container_t c_type) {
-        // TODO
-        // ifs << indexing_suite stuff
-    // }
+    void boostpython_indexing_suite(std::string_view container_name, std::string_view container_mangled_name,  container_t c_type) {
+        ifs << "class_<"
+            << container_name
+            << ">(\""
+            << container_mangled_name
+            << "\")\n"
+            << mpcs::indent
+            << ".def(";
+        if (c_type == container_t::c_map)
+            ifs << "map_indexing_suite";
+        else if (c_type == container_t::c_vector)
+            ifs << "vector_indexing_suite";
+        ifs << '<'
+            << container_name
+            << ">());\n\n"
+            << mpcs::unindent;
+    }
 
     void basic_variable(ast_basic_variable const& astbv) {
         if (!current_function.empty())
             type_basic(astbv.type);
-        else if(!current_struct.empty()) {
+        else if (!current_struct.empty()) {
             ifs << "\n.def_readwrite(\""
                 << astbv.name
                 << "\", &"
@@ -146,7 +171,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
     void container(ast_container const& astcon) {
         if (!current_function.empty())
             type_container(astcon.type);
-        else if(!current_struct.empty()) {
+        else if (!current_struct.empty()) {
             ifs << "\n.def_readwrite(\""
                 << astcon.name
                 << "\", &"
@@ -175,7 +200,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
                 if (std::next(astvar) != astfunc.params.cend())
                     ifs << ", "; // ostream_joiner would be nice here...
             }
-            ifs << "){\n"
+            ifs << ") {\n"
                 << mpcs::indent
                 << "// IMPLEMENTATION\n"
                 << mpcs::unindent
@@ -222,9 +247,7 @@ AUTO GENERATED C++ FILE
 
     void struct_(ast_struct const& aststruct) {
         current_struct = aststruct.name;
-        if (generating_headers()) {
-            // TODO check for containers in members
-        } else if (generating_boostpython()) {
+        if (generating_boostpython()) {
             ifs << "class_<"
                 << aststruct.name
                 << ">(\""
@@ -250,8 +273,7 @@ AUTO GENERATED C++ FILE
     void type_basic(ast_type_basic const& asttype, container_t c_type = container_t::c_unknown) {
         if (generating_headers()) {
             if (c_type != container_t::c_unknown && asttype.type == type_t::t_custom) {
-                comparison_required.insert(asttype.custom_typename);
-                // indexing_required.insert({ asttype.custom_typename, c_type});
+                operator_eqls_required.insert(asttype.custom_typename);
                 if (c_type == container_t::c_map)
                     include_map_indexing_suite_hpp = true;
                 else if (c_type == container_t::c_vector)
@@ -271,6 +293,21 @@ AUTO GENERATED C++ FILE
                 ifs << "* ";
             if (asttype.mod_ref)
                 ifs << "& ";
+            if (c_type != container_t::c_unknown) {
+                if (asttype.mod_unsigned)
+                    current_container += "unsigned ";
+                if (asttype.type == type_t::t_custom) {
+                    current_container += asttype.custom_typename;
+                } else
+                    current_container += to_string(asttype.type);
+                current_container += ' ';
+                if (asttype.mod_const)
+                    current_container += "const ";
+                if (asttype.mod_ptr)
+                    current_container += "* ";
+                if (asttype.mod_ref)
+                    current_container += "& ";
+            }
         } else if (generating_boostpython()) {
             if (asttype.mod_ptr || asttype.mod_ref)
                 ifs << ", return_value_policy<reference_existing_object>()";
@@ -283,29 +320,33 @@ AUTO GENERATED C++ FILE
                 type_basic(typebasic, asttype.type);
             }
         } else if (generating_stubs()) {
-            ifs << asttype.type;
-            ifs << '<';
+            ifs << asttype.type
+                << '<';
+            current_container += to_string(asttype.type);
+            current_container += '<';
             for (auto typebasic = asttype.template_types.cbegin(); typebasic != asttype.template_types.cend(); typebasic++) {
-                type_basic(*typebasic);
-                if (std::next(typebasic) != asttype.template_types.cend())
+                type_basic(*typebasic, asttype.type);
+                if (std::next(typebasic) != asttype.template_types.cend()) {
                     ifs << ", "; // ostream_joiner would be nice here...
+                    current_container += ", ";
+                }
             }
             ifs << "> ";
+            current_container += '>';
             if (asttype.mod_const)
                 ifs << "const ";
             if (asttype.mod_ptr)
                 ifs << "* ";
             if (asttype.mod_ref)
                 ifs << "& ";
+
+            add_container_to_indexing_suite(std::move(current_container), asttype.type);
+            current_container.clear(); // moved from l-value is in "valid but unspecified state", probably is empty but that is not guaranteed so let's clear it to be safe
         } else if (generating_boostpython()) {
             if (asttype.mod_ptr || asttype.mod_ref)
                 ifs << ", return_value_policy<reference_existing_object>()";
         }
     }
-
-    // void using_() {
-
-    // }
 
     void variable(ast_variable const& astvar) {
         std::visit(overloaded {
@@ -315,22 +356,33 @@ AUTO GENERATED C++ FILE
 
     }
 
-    cppfile_ast_visitor my_ast_visitor;
-    std::set<std::string_view>                   comparison_required;
-    std::map<std::string_view, std::string_view> indexing_required;
-    bool                                         include_map_indexing_suite_hpp;
-    bool                                         include_vector_indexing_suite_hpp;
-    // bool                                         writing_container;
-    std::string_view                             current_function;
-    std::string_view                             current_struct;
+    void add_container_to_indexing_suite(std::string&& container_name, container_t c_type) {
+        if (indexing_suite_required.find(container_name) == indexing_suite_required.end()) {
+            std::string mangled_container_name = mangle_name(container_name);
+            indexing_suite_required.insert({ std::move(container_name), { mangled_container_name, c_type } });
+        }
+    }
+
+    cppfile_ast_visitor                             my_ast_visitor;
+    std::set<std::string_view, std::less<>>         operator_eqls_required;
+    std::map<
+        std::string,
+        std::pair<std::string, container_t>,
+        std::less<>>                                indexing_suite_required;
+    bool                                            include_map_indexing_suite_hpp;
+    bool                                            include_vector_indexing_suite_hpp;
+    std::string                                     current_container;
+    std::string_view                                current_function;
+    std::string_view                                current_struct;
 public:
     cplusplus_generator(headerfile const& source, std::unique_ptr<ast> const& my_ast) : 
         code_generator_base(source.cppfile, source, my_ast),
         my_ast_visitor(*this),
-        comparison_required(),
-        indexing_required(),
+        operator_eqls_required(),
+        indexing_suite_required(),
         include_map_indexing_suite_hpp(false),
         include_vector_indexing_suite_hpp(false),
+        current_container(),
         current_function(),
         current_struct()
         {}
@@ -350,7 +402,7 @@ public:
         for (auto const& node : *my_ast) {
             std::visit(my_ast_visitor, node);
         }
-        for (std::string_view custom_type : comparison_required) {
+        for (std::string_view custom_type : operator_eqls_required) {
             operator_eqls(custom_type);
         }
     }
@@ -362,9 +414,8 @@ public:
         for (auto const& node : *my_ast) {
             std::visit(my_ast_visitor, node);
         }
-        for (auto container : indexing_required) {
-            // TODO: make this work
-            // boostpython_indexing(container.first, container.second);
+        for (auto const& [container_name, container_info] : indexing_suite_required) {
+            boostpython_indexing_suite(container_name, container_info.first, container_info.second);
         }
         boostpython_end();
         my_state = state::done;
@@ -427,11 +478,13 @@ public:
         structs_seen()
         {}
 
+    // first pass
     void generate_header() {
         my_state = state::header;
         header();
     }
 
+    // second pass
     void generate_stubs() {
         my_state = state::stubs;
         for (auto const& node : *my_ast) {

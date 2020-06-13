@@ -23,4 +23,4 @@ inline std::map<std::string, Rocket>* get_rockets();
 
 inline Rocket apollo11;
 
-inline std::vector<Rocket> my_rockets;
+inline std::vector<char const*> my_rockets;

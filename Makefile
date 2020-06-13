@@ -13,5 +13,8 @@ containerpy:
 simplepy:
 	g++ -std=c++17 -Wall -shared -fPIC examples/simple.cpp -o examples/simple.so -lpython3.6m -lboost_python3
 
+harderpy:
+	g++ -std=c++17 -Wall -shared -fPIC examples/harder.cpp -o examples/harder.so -lpython3.6m -lboost_python3
+
 clean:
 	rm -f run.o
