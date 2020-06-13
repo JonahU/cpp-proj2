@@ -7,14 +7,11 @@ using namespace std;
 using namespace proj2;
 
 /* TODO:
-    - c++ codegen
-    - python codegen
-
-    - newline required at bottom of input header file (bug?)
-
     - [not possible?] convert parser visit token.type to new variant idiom (move logic from parser_token_visitor to parser_ast_visitor)
 
     - clean up code (particularly parser) + remove logging
+    - add nice example + clean up examples + boostpython directories
+    - README
     - enable if templates in parser ?
     - versioned namespaces?
 
@@ -29,16 +26,28 @@ using namespace proj2;
     - --emit-ast ?
 
     RULES:
-    - no overloading
-    - no nested template
-    - no nested struct
-    - aggregate, no const (is this POD?)
-    - newline at end of file
-    - no extraneous parentheses
-    - no operator functions
-    - supported keywords: int, double, vector etc...
-    - no tuple
-    - no forward declarations
+        SUPPORTED:
+            - (inline) variables
+            - aggregate (is this POD?)
+            - supported keywords: int, double, std::vector etc...
+            - supported modifiers *, &, const, unsigned
+        NOT ALLOWED:
+            - no const struct members
+            - no pointer-to-pointer
+            - no r-value references
+            - no namespaces
+            - no function overloading
+            - no nested template
+            - no nested struct
+            - newline required at end of file
+            - no extraneous parentheses
+            - no operator functions
+            - no tuple
+            - no forward declarations
+            - should be valid c++, some things may not get caught by the lexer/parser doesn't mean the generated code will work...
+        BUGS:
+            - name mangling in cpptopy isn't perfect:
+            - don't name your struct "string" or end it with unsigned e.g. "mytype_unsigned"
 */
 
 int main(int argc, char* argv[]) {

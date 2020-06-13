@@ -4,3 +4,6 @@ TODO
 -considered multiple variants for lookup in parser: https://www.bfilipek.com/2018/09/visit-variants.html
 -no nested structs
 -no nested templates (started implementing but decided to prioritize other things)
+
+-tested with gcc 9.3.0
+-doesn't compile with my version of clang (ctre problem)

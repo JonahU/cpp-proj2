@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <boost/algorithm/string/replace.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -73,18 +75,34 @@ inline headerfile parse_headerfile(std::string_view headerpath) {
 }
 
 constexpr auto mangle_stl_container_regex
-    = ctll::fixed_string{"^(?:std::)?([a-zA-Z_]+\\w*)\\s*<\\s*(?:std::)?([a-zA-Z_]+\\w*)\\s*,?\\s*(?:std::)?([a-zA-Z_]+\\w*)?\\s*>$"};
+    = ctll::fixed_string{"^(?:std::)?([a-zA-Z_]+\\w*)\\s*<(?:std::)?([\\w \\*&_]+),? (?:std::)?([\\w \\*&_]+)*>$"};
 // there is a problem with clashing mangled names if for some reason you name your struct "string"
 // e.g. vector<string> & vector<std::string> will both be mangled as "vector_string"
+
+inline void mangle_modifiers(std::string& mangled) {
+    // this function could definitely be improved...
+    boost::replace_all(mangled, "unsigned ", "__UNSIGNED__ "); // potential problems here if custom type name ends with "unsigned"
+    boost::replace_all(mangled, " const ", " __CONST__ ");
+    boost::replace_all(mangled, "*", "__PTR__");
+    boost::replace_all(mangled, "&", "__REF__");
+    boost::replace_all(mangled, " ", "");
+}
 
 inline std::string mangle_name(std::string_view name) {
     if (auto [_, container_type, template_first, template_second] = ctre::match<mangle_stl_container_regex>(name); _) {
         std::string mangled(container_type.to_string());
         mangled += '_';
-        if (template_first)
-            mangled += template_first.to_view();
-        if (template_second)
-            mangled += template_second.to_view();
+        if (template_first) {
+            std::string first_type(template_first.to_string());
+            mangle_modifiers(first_type);
+            mangled += first_type;
+        }
+        if (template_second) {
+            std::string second_type(template_second.to_string());
+            mangle_modifiers(second_type);
+            mangled += second_type;
+
+        }
         return mangled;
     } else {
         throw std::runtime_error("cpptopy: name mangling regex match failed");
@@ -122,8 +140,9 @@ struct cppfile_ast_visitor : ast_visitor_base {
     cplusplus_generator& code_generator;
     cppfile_ast_visitor(cplusplus_generator& _code_generator) : code_generator(_code_generator) {}
 
-    virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; } // TODO: handle free variable
-    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // TODO: handle free container
+    virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; }
+
+    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // Note: no indexing_suite/ operator == code generated for global variables
     
     virtual void operator() (ast_function const& node) const override {
         std::cout << "cpp visiting ast_function\n"; 
@@ -219,7 +238,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
             }
             ifs << ") {\n"
                 << mpcs::indent
-                << "// IMPLEMENTATION\n"
+                << "// FUNCTION IMPLEMENTATION\n"
                 << mpcs::unindent
                 << "}\n\n";
         } else if (generating_boostpython()) {
@@ -256,7 +275,8 @@ AUTO GENERATED C++ FILE
             << custom_type
             << " const & rhs) {\n"
             << mpcs::indent
-            << "// CHANGE IF NECESSARY\n"
+            << "// THIS IS REQUIRED FOR BOOST PYTHON INDEXING SUITE TO WORK CORRECTLY\n"
+            << "// CHANGE IMPLEMENTATION IF NECESSARY\n"
             << "return &lhs == &rhs;\n"
             << mpcs::unindent
             << "}\n\n";
@@ -357,7 +377,7 @@ AUTO GENERATED C++ FILE
             if (asttype.mod_ref)
                 ifs << "& ";
 
-            add_container_to_indexing_suite(std::move(current_container), asttype.type);
+            _add_container_to_indexing_suite(std::move(current_container), asttype.type);
             current_container.clear(); // moved from l-value is in "valid but unspecified state", probably is empty but that is not guaranteed so let's clear it to be safe
         } else if (generating_boostpython()) {
             if (asttype.mod_ptr || asttype.mod_ref)
@@ -373,7 +393,7 @@ AUTO GENERATED C++ FILE
 
     }
 
-    void add_container_to_indexing_suite(std::string&& container_name, container_t c_type) {
+    void _add_container_to_indexing_suite(std::string&& container_name, container_t c_type) {
         if (indexing_suite_required.find(container_name) == indexing_suite_required.end()) {
             std::string mangled_container_name = mangle_name(container_name);
             indexing_suite_required.insert({ std::move(container_name), { mangled_container_name, c_type } });
@@ -484,7 +504,10 @@ AUTO GENERATED PYTHON FILE
 """
 
 )python";
-        ifs << "import " << sourcefile.modulename << "\n";
+        ifs << "import "
+            << sourcefile.modulename
+            << "\n\nif __name__ == \"__main__\":\n"
+            << mpcs::indent;
     }
 
     std::set<std::string_view, std::less<>> structs_seen;

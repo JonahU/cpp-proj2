@@ -191,6 +191,7 @@ struct parser_token_visitor : token_visitor_base {
 
         if (my_parser == parser_scope::struct_def    ||
             my_parser == parser_scope::function_decl ||
+            my_parser == parser_scope::template_     ||
             my_parser == parser_scope::global) 
         {
             my_parser += parser_scope::variable;
