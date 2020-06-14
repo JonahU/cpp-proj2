@@ -115,7 +115,9 @@ inline std::ostream& operator<< (std::ostream& os, parser_scope ps) {
 }
 
 
-// Note: variants can't hold references, look at reference_wrapper?
+// Note: variants can't hold references, maybe reference_wrapper would be appropriate here?
+// Note2: calling this a "tag" might be a bit misleading, it is used for runtime dispatch but the value is also read (so value cant't simply be an empty struct tag type)
+// Note3: these raw pointers are non-owning (important given what Bjarne emphasized about pointer ownership/ C++ Core Guidelines I.11)
 using token_tag = std::variant<
     container_token  const*,
     identifier_token const*,

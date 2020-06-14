@@ -44,3 +44,6 @@ TODO
     -it's useful for variable modifiers but that's about it...
 
 -would be nice to go all out on multiple dispatch in the parser + encorporate current_scope which would simplify the code in parser_token_visitor
+
+-better error msgs in parser
+-at the moment you can get a bad variant access, segmentation fault (reading the top element of an empty std::stack) or if you're lucky a runtime exception with a slightly more useful error message
