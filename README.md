@@ -23,6 +23,8 @@ Please see the `examples` folder for some examples of what this program can hand
 
 ### My testing environment
 - gcc 9.3.0 and c++17
+- boost 1.73.0
+- compile time regular expressions v2 
 - python 3.6 (any python3 version should be fine)
 - Note: ctre.hpp wouldn't compile with my version of clang, I haven't tested other compilers
 
@@ -98,6 +100,10 @@ NOTE: I'm running out of time, this project is due in 5 minutes so I don't have 
 
 -better error msgs in parser
 -at the moment you can get a bad variant access, segmentation fault (reading the top element of an empty std::stack) or if you're lucky a runtime exception with a slightly more useful error message
+
+-the use of the term "ast" in the parser might be a bit misleading
+-the parser produces a vector of ast_nodes but those nodes can have branches
+-it is an ast of sorts but probably not in the traditional sense...
 
 RULES:
     SUPPORTED:
