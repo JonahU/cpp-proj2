@@ -17,7 +17,7 @@ constexpr auto identifier_regex = ctll::fixed_string{"^[a-zA-Z_]+\\w*$"};
 constexpr auto headerfile_regex = ctll::fixed_string{"^[/\\w_]+\\.(?:h|hh|hpp|hxx|h\\+\\+)$"};
 constexpr auto isspace_regex    = ctll::fixed_string{"^\\s$"};
 constexpr auto keyword_regex    = ctll::fixed_string{"^(struct)|(inline)|(include)|(int)|(long)|(short)|(double)|(float)|(char)|(void)|(std::string)|(std::vector)|(std::map)|(std::tuple)|(unsigned)|(const)$"};
-constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(')|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " ' , ( ) { } ; # < > * &
+constexpr auto symbol_regex     = ctll::fixed_string{"^(\")|(,)|(\\()|(\\))|(\\{)|(\\})|(;)|(#)|(<)|(>)|(\\*)|(&)$"}; // " , ( ) { } ; # < > * &
 
 constexpr auto match_identifier (std::string_view sv) noexcept { return ctre::match<identifier_regex>(sv) || ctre::match<headerfile_regex>(sv); }
 constexpr auto match_isspace    (std::string_view sv) noexcept { return ctre::match<isspace_regex>(sv); } 
@@ -27,7 +27,7 @@ constexpr auto match_symbol     (std::string_view sv) noexcept { return ctre::ma
 enum class container_t  { c_unknown, c_vector, c_map, c_tuple };
 enum class keyword_t    { k_unknown, k_struct, k_inline, k_include };
 enum class modifier_t   { m_unknown, m_const, m_ptr, m_ref, m_unsigned };
-enum class symbol_t     { s_unknown, s_quot, s_apos, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
+enum class symbol_t     { s_unknown, s_quot, s_comma, s_lpar, s_rpar, s_lcub, s_rcub, s_semi, s_pound, s_lt, s_gt};
 enum class type_t       { t_unknown, t_custom, t_int, t_long, t_short, t_double, t_float, t_char, t_void, t_string };
 
 // forward declarations
@@ -198,7 +198,6 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
     static bool end_of_function_decl = false;
     auto [ _,
         is_quot,
-        is_apos,
         is_comma,
         is_lpar,
         is_rpar,
@@ -213,8 +212,6 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
         ] = regex_matches;
     if (is_quot) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_quot);
-    } else if (is_apos) {
-        token_list_push_symbol(my_tokens, symbol, symbol_t::s_apos);
     } else if (is_comma) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_comma);
     } else if (is_lpar) {
