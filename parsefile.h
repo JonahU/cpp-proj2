@@ -350,7 +350,6 @@ struct parser_token_visitor : token_visitor_base {
     }
 
     void enter_scope(parser_scope const ps) {
-        std::cout << "NEW SCOPE >" << ps << "\n"; 
         scope.push(ps);
     }
 
@@ -367,7 +366,6 @@ struct parser_token_visitor : token_visitor_base {
             std::cerr << "parser expected scope '" << expected_scope << "', got '" << current_scope() << "'\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
-        std::cout << "EXIT SCOPE<" << expected_scope << "\n";
         exit_scope();
     }
 
@@ -379,7 +377,7 @@ struct parser_token_visitor : token_visitor_base {
 
     void operator -=(parser_scope const ps) { exit_scope(ps); }
 
-    void operator --()    { std::cout << "EXIT SCOPE<\n"; exit_scope(); }
+    void operator --()    { exit_scope(); }
 
     void operator --(int) { exit_scope(); }
 

@@ -284,6 +284,7 @@ inline std::unique_ptr<token_list> tokenize(std::ifstream& ifs) {
             if      (next_ch == '{'  ) ++scope_depth;
             else if (next_ch == '}'  ) --scope_depth;
             if      (scope_depth != 0)      continue;
+            else    inside_function_def      = false;
         }
 
         if (match_isspace(next_ch_str)) {

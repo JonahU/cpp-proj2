@@ -53,28 +53,24 @@ inline std::ostream& operator<< (std::ostream& os, type_t tt) {
 }
 
 struct headerfile {
+    headerfile(std::string_view _source) :
+        _filepath (std::filesystem::path(_source)),
+        source    (_source),
+        filename  (_filepath.filename()),
+        extension (_filepath.extension()),
+        cppfile   (_filepath.replace_extension(".cpp").relative_path()),
+        pyfile    (_filepath.replace_extension(".py").relative_path()),
+        modulename(std::string_view(filename).substr(0, filename.find_last_of('.')))
+        {}
+
+    std::filesystem::path _filepath;
     std::string_view const source;
     std::string      const filename;
     std::string      const extension;
     std::string      const cppfile;
     std::string      const pyfile;
-    std::string      const modulename;
+    std::string_view const modulename;
 };
-
-// Note: not very happy about the amount of string copying/ redundancy in this function
-inline headerfile parse_headerfile(std::string_view headerpath) { 
-    std::filesystem::path filepath(headerpath);
-    std::string filename(filepath.filename());
-    size_t dot_index = filename.find_last_of('.');
-    std::string no_extension = filename.substr(0, dot_index);
-    return { 
-        headerpath,
-        std::move(filename),
-        filepath.extension(),
-        filepath.replace_extension(".cpp").relative_path(),
-        filepath.replace_extension(".py").relative_path(),
-        std::move(no_extension)};
-}
 
 constexpr auto mangle_stl_container_regex
     = ctll::fixed_string{"^(?:std::)?([a-zA-Z_]+\\w*)\\s*<(?:std::)?([\\w \\*&_]+),? (?:std::)?([\\w \\*&_]+)*>$"};
@@ -234,7 +230,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
             if (astfunc.declaration_only) {
                 type(astfunc.return_type);
                 ifs << astfunc.name << '(';
-    
+
                 for (auto astvar = astfunc.params.cbegin(); astvar != astfunc.params.cend(); astvar++) {
                     variable(*astvar);
                     if (std::next(astvar) != astfunc.params.cend())
@@ -555,8 +551,7 @@ void write_pythonfile(headerfile const& sourcefile, std::unique_ptr<ast> const& 
 }
 
 void cpptopy(std::string_view sourcefile, std::unique_ptr<ast> const& my_ast) {    
-    headerfile hfile = parse_headerfile(sourcefile);
-
+    headerfile hfile(sourcefile);
     std::thread cpp(write_cppfile,    std::cref(hfile), std::cref(my_ast));
     std::thread py (write_pythonfile, std::cref(hfile), std::cref(my_ast));
     cpp.join();

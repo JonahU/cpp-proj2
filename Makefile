@@ -1,8 +1,11 @@
-jit:
-	g++ -std=c++17 -Wall -O3 run.cpp -o run.o -pthread && ./run.o examples/simple.h
+all:
+	g++ -std=c++17 -Wall -O3 run.cpp -o run.o -pthread
 
 debug:
 	g++ -std=c++17 -Wall -g run.cpp -o run.o -pthread
+
+jit:
+	g++ -std=c++17 -Wall -O3 run.cpp -o run.o -pthread && ./run.o examples/simple.h
 
 aggregatepy:
 	g++ -std=c++17 -Wall -shared -fPIC boostpython/aggregate.cpp -o boostpython/aggregate.so -lpython3.6m -lboost_python3
