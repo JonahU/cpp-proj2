@@ -95,37 +95,30 @@ struct type_token : base_token {
 using token_list = std::vector<std::unique_ptr<base_token>>;
 
 inline void token_list_push_container(std::unique_ptr<token_list>& my_tokens, std::string& token, container_t const c_type) {
-    std::cout << "container " << token << "\n";
     my_tokens->emplace_back(std::make_unique<container_token>(std::move(token), c_type));
 }
 
 inline void token_list_push_identifier(std::unique_ptr<token_list>& my_tokens, std::string& token) {
-    std::cout << "identifier " << token << std::endl;
     my_tokens->emplace_back(std::make_unique<identifier_token>(std::move(token)));
 }
 
 inline void token_list_push_keyword(std::unique_ptr<token_list>& my_tokens, std::string& token, keyword_t const k_type) {
-    std::cout << "keyword " << token << "\n";
     my_tokens->emplace_back(std::make_unique<keyword_token>(std::move(token), k_type));
 }
 
 inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, std::string& token, modifier_t const m_type) {
-    std::cout << "modifier " << token << "\n";
     my_tokens->emplace_back(std::make_unique<modifier_token>(std::move(token), m_type));
 }
 
 inline void token_list_push_modifier(std::unique_ptr<token_list>& my_tokens, char token, modifier_t const m_type) {
-    std::cout << "modifier " << token << "\n";
     my_tokens->emplace_back(std::make_unique<modifier_token>(token, m_type));
 }
 
 inline void token_list_push_symbol(std::unique_ptr<token_list>& my_tokens, char token, symbol_t const s_type) {
-    std::cout << "symbol " << token << "\n";
     my_tokens->emplace_back(std::make_unique<symbol_token>(token, s_type));
 }
 
 inline void token_list_push_type(std::unique_ptr<token_list>& my_tokens, std::string& token, type_t const t_type) {
-    std::cout << "type " << token << "\n";
     my_tokens->emplace_back(std::make_unique<type_token>(std::move(token), t_type));
 }
 

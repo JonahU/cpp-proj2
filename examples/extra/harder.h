@@ -27,4 +27,21 @@ inline Rocket apollo11;
 
 inline std::vector<const char*> my_rockets;
 
+short func() {
+    /* IMPL */
+    return 0;
+}
+
 std::map<LunarRover, unsigned char const*> get_rovers(std::map<Rocket, LunarRover> const&);
+
+std::map<Rocket const*, std::string const&> something_else() {
+    /* IMPL */
+    return {};
+}
+
+std::map<Rocket const*, const char*>* something_else2() {
+    /* IMPL */
+    return nullptr;
+}
+
+int i;

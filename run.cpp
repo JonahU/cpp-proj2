@@ -53,6 +53,7 @@ using namespace proj2;
             - name mangling in cpptopy isn't perfect:
             - don't name your struct "string" or end it with unsigned e.g. "mytype_unsigned"
             - no curly braces within string literals or comments in a function definition
+            - put const on the right, lhs const specifically for containers is broken (see const_container.h example)
 */
 
 int main(int argc, char* argv[]) {

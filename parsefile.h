@@ -162,55 +162,44 @@ struct parser_token_visitor : token_visitor_base {
     parser_token_visitor(parser& _my_parser) : my_parser(_my_parser) {}
 
     void visit(container_token const& token) const override {
-        std::cout << "visiting container: " << token.value << "\n";
         my_parser.set_current_token(token);
-
         my_parser += parser_scope::variable;
         my_parser.push_node<ast_container>();
-
         my_parser.update_node();
     }
 
     void visit(identifier_token const& token) const override {
-        std::cout << "visiting identifier: " << token.value << "\n";
         my_parser.set_current_token(token);
-
         my_parser.update_node();
     }
 
     void visit(keyword_token const& token) const override {
-        std::cout << "visiting keyword: " << token.value << "\n";
         my_parser.set_current_token(token);
-
         if (token.type == keyword_t::k_struct) {
             my_parser += parser_scope::struct_decl;
             my_parser.push_node<ast_struct>();
         }
-
         my_parser.update_node();
     }
 
     void visit(modifier_token const& token) const override {
-        std::cout << "visiting modifier: " << token.value << "\n";
         my_parser.set_current_token(token);
-
         if (my_parser == parser_scope::struct_def    ||
             my_parser == parser_scope::function_decl ||
             my_parser == parser_scope::template_     ||
             my_parser == parser_scope::global) 
         {
             my_parser += parser_scope::variable;
-            my_parser.push_node<ast_basic_variable>(); // modifier must be unsigned, so push basic_variable
+            my_parser.push_node<ast_basic_variable>(); // modifier must be unsigned (or const), so push basic_variable
+
+            // Note: there is a bug here, if the modifier appears before the variable (either unsigned or const) it is assumed to be a basic_variable
+            // but it could be a container. Therefore const vector doesn't work but vector const will work (see const_container.h example for more info)
         }
-
         my_parser.update_node();
-
     }
 
     void visit(symbol_token const& token) const override {
-        std::cout << "visiting symbol: " << token.value << "\n";
         my_parser.set_current_token(token);
-        
         parser_scope prev_scope = parser_scope::unknown;
         switch (token.type) {
             case symbol_t::s_quot:
@@ -224,21 +213,17 @@ struct parser_token_visitor : token_visitor_base {
                     }
                 }
                 break;
-
             case symbol_t::s_comma:
                 my_parser -= parser_scope::variable;
                 break;
-
             case symbol_t::s_lpar:
                 my_parser += parser_scope::function_decl;
                 my_parser.push_node<ast_function>();
                 break;
-
             case symbol_t::s_rpar:
                 if (my_parser == parser_scope::variable)
                     my_parser -= parser_scope::variable; // last function param
                 break;
-
             case symbol_t::s_lcub:
                 if (my_parser == parser_scope::struct_decl) {
                     my_parser += parser_scope::struct_def;
@@ -247,7 +232,6 @@ struct parser_token_visitor : token_visitor_base {
                     my_parser += parser_scope::function_def;
                 }
                 break;
-
             case symbol_t::s_rcub:
                 if (my_parser == parser_scope::struct_def) {
                     my_parser -= parser_scope::struct_def;
@@ -258,7 +242,6 @@ struct parser_token_visitor : token_visitor_base {
                     my_parser.pop_node_function();
                 }
                 break;
-
             case symbol_t::s_semi:
                 prev_scope = my_parser.current_scope();
                 --my_parser;
@@ -271,17 +254,14 @@ struct parser_token_visitor : token_visitor_base {
                         }
                     }
                 break;
-
             case symbol_t::s_pound:
                 my_parser += parser_scope::preprocessor;
                 my_parser.push_node<ast_include>();
                 break;
-
             case symbol_t::s_lt:
                 if (my_parser != parser_scope::preprocessor)
                     my_parser += parser_scope::template_;
                 break;
-
             case symbol_t::s_gt:
                 if (my_parser == parser_scope::preprocessor) {
                     my_parser -= parser_scope::preprocessor;
@@ -296,21 +276,17 @@ struct parser_token_visitor : token_visitor_base {
                 std::cerr << "unsupported symbol: " << token.value << "\n"; 
                 throw std::invalid_argument("parser: unsupported symbol"); 
         }
-
         my_parser.update_node();
     }
 
     void visit(type_token const& token) const override {
-        std::cout << "visiting type: " << token.value << "\n";
         my_parser.set_current_token(token);
-
         if (my_parser != parser_scope::struct_decl &&
             my_parser != parser_scope::variable) 
         {
             my_parser += parser_scope::variable;
             my_parser.push_node<ast_basic_variable>();
         }
-
         my_parser.update_node();
     }
 };

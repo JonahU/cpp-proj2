@@ -138,21 +138,11 @@ struct cppfile_ast_visitor : ast_visitor_base {
     cplusplus_generator& code_generator;
     cppfile_ast_visitor(cplusplus_generator& _code_generator) : code_generator(_code_generator) {}
 
-    virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; }
-
-    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // Note: no indexing_suite/ operator== code generated for global variable containers
-    
-    virtual void operator() (ast_function const& node) const override {
-        std::cout << "cpp visiting ast_function\n"; 
-        code_generator.function(node);
-    }
-
-    virtual void operator() (ast_include const&) const override { std::cout << "cpp visiting ast_include\n"; }
-    
-    virtual void operator() (ast_struct const& node) const override {
-        std::cout << "cpp visiting ast_struct\n";
-        code_generator.struct_(node);
-    }
+    virtual void operator() (ast_basic_variable  const& node) const override {}
+    virtual void operator() (ast_container       const& node) const override {} // Note: no indexing_suite/ operator== code generated for global variable containers
+    virtual void operator() (ast_function        const& node) const override { code_generator.function(node); }
+    virtual void operator() (ast_include         const& node) const override {}
+    virtual void operator() (ast_struct          const& node) const override { code_generator.struct_(node); }
 };
 
     void boostpython_start() {
@@ -312,13 +302,12 @@ struct cppfile_ast_visitor : ast_visitor_base {
 
     void type_basic(ast_type_basic const& asttype, container_t c_type = container_t::c_unknown) {
         if (generating_headers()) {
-            if (c_type != container_t::c_unknown && asttype.type == type_t::t_custom) {
+            if (c_type != container_t::c_unknown && asttype.type == type_t::t_custom)
                 operator_eqls_required.insert(asttype.custom_typename);
-                if (c_type == container_t::c_map)
-                    include_map_indexing_suite_hpp = true;
-                else if (c_type == container_t::c_vector)
-                    include_vector_indexing_suite_hpp = true;
-            }
+            if (c_type == container_t::c_map)
+                include_map_indexing_suite_hpp = true;
+            else if (c_type == container_t::c_vector)
+                include_vector_indexing_suite_hpp = true;
         } else if (generating_stubs()) {
             if (asttype.mod_unsigned)
                 ifs << "unsigned ";
@@ -414,6 +403,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
     std::string                                     current_container;
     std::string_view                                current_function;
     std::string_view                                current_struct;
+
 public:
     cplusplus_generator(headerfile const& source, std::unique_ptr<ast> const& my_ast) : 
         code_generator_base(source.cppfile, source, my_ast),
@@ -469,15 +459,11 @@ struct pythonfile_ast_visitor : ast_visitor_base {
     python_generator& code_generator;
     pythonfile_ast_visitor(python_generator& _code_generator) : code_generator(_code_generator) {}
 
-    virtual void operator() (ast_basic_variable const&) const override { std::cout << "python visiting ast_basic_variable\n"; }
-    virtual void operator() (ast_container      const&) const override { std::cout << "python visiting ast_container\n"; }
-    virtual void operator() (ast_function       const&) const override { std::cout << "python visiting ast_function\n"; }
-    virtual void operator() (ast_include        const&) const override { std::cout << "python visiting ast_include\n"; }
-    
-    virtual void operator() (ast_struct const& node) const override {
-        std::cout << "python visiting ast_struct\n";
-        code_generator.class_(node);
-    }
+    virtual void operator() (ast_basic_variable const& node) const override {}
+    virtual void operator() (ast_container      const& node) const override {}
+    virtual void operator() (ast_function       const& node) const override {}
+    virtual void operator() (ast_include        const& node) const override {}
+    virtual void operator() (ast_struct         const& node) const override { code_generator.class_(node); }
 };
 
     pythonfile_ast_visitor my_ast_visitor;
