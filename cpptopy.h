@@ -158,7 +158,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
             << "}\n";
     }
 
-    void boostpython_indexing_suite(std::string_view container_name, std::string_view container_mangled_name,  container_t c_type) {
+    void boostpython_indexing_suite(std::string_view container_name, std::string_view container_mangled_name, container_t c_type) {
         ifs << "class_<"
             << container_name
             << ">(\""
@@ -216,7 +216,9 @@ struct cppfile_ast_visitor : ast_visitor_base {
                 variable(astvar);
             }
         } else if (generating_stubs()) {
-            // don't generate stubs for functions with definitions
+            // Note: there is a bug here where indexing_suite code is not generated for containers that are part of a function with a definition
+            // fixing this would involve decoupling current_container & ifs << code generation
+            // because the following code is called only a function has no definition, _add_container_to_indexing_suite() is never called when it should be
             if (astfunc.declaration_only) {
                 type(astfunc.return_type);
                 ifs << astfunc.name << '(';
