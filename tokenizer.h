@@ -1,4 +1,5 @@
-#pragma once
+#ifndef P2_TOKENIZER_H
+#  define P2_TOKENIZER_H
 
 #include <fstream>
 #include <iostream>
@@ -294,3 +295,4 @@ inline std::unique_ptr<token_list> tokenize(std::ifstream& ifs) {
 }
 
 }
+#endif

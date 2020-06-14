@@ -1,14 +1,14 @@
 all:
-	g++ -std=c++17 -Wall -O3 run.cpp -o proj2 -pthread
+	g++ -std=c++17 -Wall -O3 proj2.cpp -o proj2 -pthread
 
 debug:
-	g++ -std=c++17 -Wall -g run.cpp -o proj2 -pthread
+	g++ -std=c++17 -Wall -g proj2.cpp -o proj2 -pthread
 
 jit:
-	g++ -std=c++17 -Wall -O3 run.cpp -o proj2 -pthread && ./proj2 examples/simple.h
+	g++ -std=c++17 -Wall -O3 proj2.cpp -o proj2 -pthread && ./proj2 examples/simple.h
 
 clean:
-	rm -f run.o
+	rm -f proj2
 
 simple_example:
 	g++ -std=c++17 -Wall -shared -fPIC examples/simple.cpp -o examples/simple.so -lpython3.6m -lboost_python3

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef P2_CPPTOPY_H
+#  define P2_CPPTOPY_H
 
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
@@ -547,3 +548,4 @@ void cpptopy(std::string_view sourcefile, std::unique_ptr<ast> const& my_ast) {
 }
 
 }
+#endif

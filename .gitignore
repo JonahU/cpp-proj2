@@ -2,5 +2,6 @@
 *.o
 *.out
 *.so
+proj2
 examples/*.cpp
 examples/*.py

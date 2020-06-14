@@ -1,4 +1,5 @@
-#pragma once
+#ifndef P2_PARSEFILE_H
+#  define P2_PARSEFILE_H
 
 #include <algorithm>
 #include <iostream>
@@ -573,3 +574,4 @@ inline std::unique_ptr<ast> parse(std::unique_ptr<token_list> const& tokens) {
 }
 
 }
+#endif
