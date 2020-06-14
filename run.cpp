@@ -47,6 +47,7 @@ using namespace proj2;
             - no operator functions
             - no tuple
             - no forward declarations
+            - only 1 function declaration/definition
             - should be valid c++, some things may not get caught by the lexer/parser doesn't mean the generated code will work...
         BUGS:
             - name mangling in cpptopy isn't perfect:

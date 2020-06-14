@@ -7,3 +7,24 @@ TODO
 
 -tested with gcc 9.3.0
 -doesn't compile with my version of clang (ctre problem)
+
+-half baked multi dispatch
+-1 pass parser (no backtracking)
+
+-stack for nodes under construction not ideal given current abstractions
+-e.g. parsing a function:
+
+      [STACK TOP]
+    <variable-node> // the 2nd parameter              
+    <variable-node> // the 1st parameter
+    <function-node> 
+    <variable-node> // the return value (parser must assume this a global variable, doesn't know it's a type until it sees left paren)
+       [BOTTOM]
+
+    -We so far have processed int func(char one, long two)
+    -Next symbol could be either ';' or '{'
+    -I want to mark the function-node as either having a definition or not
+    -Because I used a stack I can't directly access the function-node
+
+    -Getting the desired results means creating a special pop_node_function
+    -I should have thought more carefully about these issues...

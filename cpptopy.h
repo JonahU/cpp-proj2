@@ -61,7 +61,7 @@ struct headerfile {
     std::string      const modulename;
 };
 
-// Note: not happy about the amount of string copying/ redundancy in this function
+// Note: not very happy about the amount of string copying/ redundancy in this function
 inline headerfile parse_headerfile(std::string_view headerpath) { 
     std::filesystem::path filepath(headerpath);
     std::string filename(filepath.filename());
@@ -144,7 +144,7 @@ struct cppfile_ast_visitor : ast_visitor_base {
 
     virtual void operator() (ast_basic_variable const&) const override { std::cout << "cpp visiting ast_basic_variable\n"; }
 
-    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // Note: no indexing_suite/ operator == code generated for global variables
+    virtual void operator() (ast_container const&) const override { std::cout << "cpp visiting ast_container\n"; } // Note: no indexing_suite/ operator== code generated for global variable containers
     
     virtual void operator() (ast_function const& node) const override {
         std::cout << "cpp visiting ast_function\n"; 
@@ -230,19 +230,22 @@ struct cppfile_ast_visitor : ast_visitor_base {
                 variable(astvar);
             }
         } else if (generating_stubs()) {
-            type(astfunc.return_type);
-            ifs << astfunc.name << '(';
-
-            for (auto astvar = astfunc.params.cbegin(); astvar != astfunc.params.cend(); astvar++) {
-                variable(*astvar);
-                if (std::next(astvar) != astfunc.params.cend())
-                    ifs << ", "; // ostream_joiner would be nice here...
+            // don't generate stubs for functions with definitions
+            if (astfunc.declaration_only) {
+                type(astfunc.return_type);
+                ifs << astfunc.name << '(';
+    
+                for (auto astvar = astfunc.params.cbegin(); astvar != astfunc.params.cend(); astvar++) {
+                    variable(*astvar);
+                    if (std::next(astvar) != astfunc.params.cend())
+                        ifs << ", "; // ostream_joiner would be nice here...
+                }
+                ifs << ") {\n"
+                    << mpcs::indent
+                    << "// FUNCTION IMPLEMENTATION\n"
+                    << mpcs::unindent
+                    << "}\n\n";
             }
-            ifs << ") {\n"
-                << mpcs::indent
-                << "// FUNCTION IMPLEMENTATION\n"
-                << mpcs::unindent
-                << "}\n\n";
         } else if (generating_boostpython()) {
             ifs << "def(\""
                 << astfunc.name
@@ -524,13 +527,11 @@ public:
         structs_seen()
         {}
 
-    // first pass
     void generate_header() {
         my_state = state::header;
         header();
     }
 
-    // second pass
     void generate_stubs() {
         my_state = state::stubs;
         for (auto const& node : *my_ast) {
