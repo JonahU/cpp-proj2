@@ -1,11 +1,11 @@
 all:
-	g++ -std=c++17 -Wall -O3 run.cpp -o run.o -pthread
+	g++ -std=c++17 -Wall -O3 run.cpp -o proj2 -pthread
 
 debug:
-	g++ -std=c++17 -Wall -g run.cpp -o run.o -pthread
+	g++ -std=c++17 -Wall -g run.cpp -o proj2 -pthread
 
 jit:
-	g++ -std=c++17 -Wall -O3 run.cpp -o run.o -pthread && ./run.o examples/simple.h
+	g++ -std=c++17 -Wall -O3 run.cpp -o proj2 -pthread && ./proj2 examples/simple.h
 
 clean:
 	rm -f run.o
