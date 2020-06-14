@@ -28,3 +28,19 @@ TODO
 
     -Getting the desired results means creating a special pop_node_function
     -I should have thought more carefully about these issues...
+
+-biggest source of bugs in the parser
+-hardest to reason about, tracking lexer token, scope + ast node in a not very coherant way
+-if i was designing from scratch would use std::visit and multi dispatch everywhere
+-there isn't much error handling in the parser, would like to add better error messages with more time
+-tried to implement a "event"-based style in the parser which sort of works but probably isn't worth its cost given the current implementation
+-the basic idea is:
+    -set current lexer token to current_token
+    -std::visit(current_ast_node, current_token) is called everytime the parser processes a new token
+    -this model is nice because I never explicitly construct an ast node then check if for the "const" keyword
+    -I just construct a new node and std::visit is called on every new token
+    -the idea was it would be better to split up all the complicated logic when constructing ast nodes
+    -although a nice idea, there is marginal utility given the current implementation (some issues relate to the stack problem above)
+    -it's useful for variable modifiers but that's about it...
+
+-would be nice to go all out on multiple dispatch in the parser + encorporate current_scope which would simplify the code in parser_token_visitor
