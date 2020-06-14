@@ -190,7 +190,12 @@ inline void fill_token_list_which_keyword(std::unique_ptr<token_list>& my_tokens
 }
 
 template <typename... Captures>
-inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens, char symbol, ctre::regex_results<Captures...> const& regex_matches) {
+inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
+                                         char symbol,
+                                         ctre::regex_results<Captures...> const& regex_matches,
+                                         bool& inside_function_def,
+                                         int& scope_depth) {
+    static bool end_of_function_decl = false;
     auto [ _,
         is_quot,
         is_apos,
@@ -216,12 +221,16 @@ inline void fill_token_list_which_symbol(std::unique_ptr<token_list>& my_tokens,
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_lpar);
     } else if (is_rpar) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_rpar);
+        end_of_function_decl = true;
     } else if (is_lcub) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_lcub);
+        if (end_of_function_decl) { inside_function_def = true; ++scope_depth; }
     } else if (is_rcub) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_rcub);
+        end_of_function_decl = false;
     } else if (is_semi) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_semi);
+        end_of_function_decl = false;
     } else if (is_pound) {
         token_list_push_symbol(my_tokens, symbol, symbol_t::s_pound);
     } else if (is_lt) {
@@ -269,13 +278,22 @@ inline std::unique_ptr<token_list> tokenize(std::ifstream& ifs) {
     char& next_ch = next_ch_str[0]; // but ifstream.get() wants a char
     std::string token;
 
+    bool inside_function_def = false;
+    int scope_depth = 0; // track open & close curly braces within a function
+
     while(!ifs.eof()) {
         ifs.get(next_ch);
+        if (inside_function_def) { // ignore whatever is inside the function definition
+            if      (next_ch == '{'  ) ++scope_depth;
+            else if (next_ch == '}'  ) --scope_depth;
+            if      (scope_depth != 0)      continue;
+        }
+
         if (match_isspace(next_ch_str)) {
             fill_token_list_keyword_or_identifier(my_tokens, token, new_types);
         } else if (auto symbol_match = match_symbol(next_ch_str)) {
             fill_token_list_keyword_or_identifier(my_tokens, token, new_types);
-            fill_token_list_which_symbol(my_tokens, next_ch, symbol_match);
+            fill_token_list_which_symbol(my_tokens, next_ch, symbol_match, inside_function_def, scope_depth);
         } else {
             token+=next_ch;
         }

@@ -5,3 +5,7 @@ struct Rocket {
 };
 
 inline void launch(Rocket r, char const* when, char const* where);
+
+int defined() {
+    return 0;
+}

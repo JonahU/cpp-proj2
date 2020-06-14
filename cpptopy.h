@@ -1,3 +1,5 @@
+#pragma once
+
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
 #include <filesystem>
@@ -253,10 +255,12 @@ struct cppfile_ast_visitor : ast_visitor_base {
     }
 
     void header() {
-        ifs << R"c++(/*
-MPCS 51045 PROJECT 2
-AUTO GENERATED C++ FILE
-*/
+        ifs <<R"c++(/////////////////////////////
+//                         //
+// MPCS 51045 PROJECT 2    //
+// AUTO GENERATED C++ FILE //
+//                         //
+/////////////////////////////
 
 #include <boost/python.hpp>
 )c++";
@@ -498,10 +502,12 @@ struct pythonfile_ast_visitor : ast_visitor_base {
     }
 
     void header() {
-        ifs << R"python("""
-MPCS 51045 PROJECT 2
-AUTO GENERATED PYTHON FILE
-"""
+        ifs << R"python(################################
+##                            ##
+## MPCS 51045 PROJECT 2       ##
+## AUTO GENERATED PYTHON FILE ##
+##                            ## 
+################################
 
 )python";
         ifs << "import "

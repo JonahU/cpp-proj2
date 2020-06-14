@@ -12,15 +12,17 @@ using namespace proj2;
     - clean up code (particularly parser) + remove logging
     - add nice example + clean up examples + boostpython directories
     - README
+    - tokenizer func def ?
+    - replace pragma onces with IFNDEF
     - enable if templates in parser ?
     - versioned namespaces?
 
     - fno-exceptions?
+
     - comments support ? // + /*
-    - tokenizer func def ?
     - default values ?
     - string literal ?
-    - char literal ?
+    - char literal ? (remove from tokenizer)
 
     - --emit-tokens flag ?
     - --emit-ast ?
@@ -36,7 +38,8 @@ using namespace proj2;
             - no pointer-to-pointer
             - no r-value references
             - no namespaces
-            - no function overloading
+            - no comments
+            - no function overloading (there isn't overloading in python)
             - no nested template
             - no nested struct
             - newline required at end of file
@@ -48,6 +51,7 @@ using namespace proj2;
         BUGS:
             - name mangling in cpptopy isn't perfect:
             - don't name your struct "string" or end it with unsigned e.g. "mytype_unsigned"
+            - no curly braces within string literals or comments in a function definition
 */
 
 int main(int argc, char* argv[]) {

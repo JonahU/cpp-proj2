@@ -52,6 +52,7 @@ using ast_variable = std::variant<ast_basic_variable, ast_container>;
 
 struct ast_function {
     ast_type                  return_type;
+    bool                      is_defined;
     std::vector<ast_variable> params;
     std::string               name;
 };
@@ -62,7 +63,7 @@ struct ast_struct {
 };
 
 struct ast_include {
-    bool        quote; // <header> vs "header"
+    bool        is_sys_header; // <header> vs "header"
     std::string name;
 };
 
@@ -140,9 +141,10 @@ struct parser_ast_visitor { // Note: doesn't inherit from ast_visitor_base becau
     void operator() (ast_container& node, modifier_token   const* token) const;
     void operator() (ast_container& node, type_token       const* token) const;
 
-    // void operator() (ast_function&, placeholder_token const* token) const; // not used currently
+    void operator() (ast_function& node, symbol_token const* token) const;
 
     void operator() (ast_include& node, identifier_token const* token) const;
+    void operator() (ast_include& node, symbol_token     const* token) const;
 
     void operator() (ast_struct& node, type_token       const* token) const;
 
@@ -232,15 +234,17 @@ struct parser_token_visitor : token_visitor_base {
             case symbol_t::s_rpar:
                 if (my_parser == parser_scope::variable)
                     my_parser -= parser_scope::variable; // last function param
-                my_parser -= parser_scope::function_decl;
-                my_parser.pop_node<ast_function>();
+                // my_parser -= parser_scope::function_decl;
+                // my_parser.pop_node<ast_function>();
                 break;
 
             case symbol_t::s_lcub:
-                if (my_parser == parser_scope::struct_decl)
+                if (my_parser == parser_scope::struct_decl) {
                     my_parser += parser_scope::struct_def;
-                else if (my_parser == parser_scope::function_decl)
+                } else if (my_parser == parser_scope::function_decl) {
+                    my_parser -= parser_scope::function_decl;
                     my_parser += parser_scope::function_def;
+                }
                 break;
 
             case symbol_t::s_rcub:
@@ -249,16 +253,22 @@ struct parser_token_visitor : token_visitor_base {
                     my_parser.pop_node<ast_struct>();
                 } else if (my_parser == parser_scope::function_def) {
                     my_parser -=parser_scope::function_def;
+                    my_parser -=parser_scope::variable; // function return value
+                    my_parser.pop_node<ast_function>();
                 }
                 break;
 
             case symbol_t::s_semi:
                 prev_scope = my_parser.current_scope();
                 --my_parser;
-                if (my_parser.node_exists() &&
-                    my_parser == parser_scope::global &&
-                    prev_scope == parser_scope::variable)
-                        my_parser.pop_node_global_variable();
+                if (my_parser.node_exists()) {
+                        if (prev_scope == parser_scope::variable && my_parser == parser_scope::global) {
+                            my_parser.pop_node_global_variable();
+                        } else if (prev_scope == parser_scope::function_decl && my_parser == parser_scope::variable) {
+                            my_parser -=parser_scope::variable; // function return value
+                            my_parser.pop_node<ast_function>();
+                        }
+                    }
                 break;
 
             case symbol_t::s_pound:
@@ -282,7 +292,6 @@ struct parser_token_visitor : token_visitor_base {
                 }
                 break;
             default:
-                // Note: no char literal support yet
                 std::cerr << "unsupported symbol: " << token.value << "\n"; 
                 throw std::invalid_argument("parser: unsupported symbol"); 
         }
@@ -342,7 +351,7 @@ struct parser_token_visitor : token_visitor_base {
     }
 
     void enter_scope(parser_scope const ps) {
-        // std::cout << "NEW SCOPE >" << ps << "\n"; 
+        std::cout << "NEW SCOPE >" << ps << "\n"; 
         scope.push(ps);
     }
 
@@ -359,7 +368,7 @@ struct parser_token_visitor : token_visitor_base {
             std::cerr << "parser expected scope '" << expected_scope << "', got '" << current_scope() << "'\n"; 
             throw std::runtime_error("parser: parse failure"); 
         }
-        // std::cout << "EXIT SCOPE<" << expected_scope << "\n";
+        std::cout << "EXIT SCOPE<" << expected_scope << "\n";
         exit_scope();
     }
 
@@ -371,7 +380,7 @@ struct parser_token_visitor : token_visitor_base {
 
     void operator -=(parser_scope const ps) { exit_scope(ps); }
 
-    void operator --()    { /* std::cout << "EXIT SCOPE<\n"; */ exit_scope(); }
+    void operator --()    { std::cout << "EXIT SCOPE<\n"; exit_scope(); }
 
     void operator --(int) { exit_scope(); }
 
@@ -562,9 +571,18 @@ void parser::parser_ast_visitor::operator() (ast_container& node, type_token con
     node.name = token->value;
 }
 
+void parser::parser_ast_visitor::operator() (ast_function& node, symbol_token const* token) const {
+    if (token->type == symbol_t::s_lcub)
+        node.is_defined = true;
+}
 
 void parser::parser_ast_visitor::operator() (ast_include& node, identifier_token const* token) const {
     node.name = token->value;
+}
+
+void parser::parser_ast_visitor::operator() (ast_include& node, symbol_token const* token) const {
+    if (token->type == symbol_t::s_lt)
+        node.is_sys_header = true;
 }
 
 void parser::parser_ast_visitor::operator() (ast_struct& node, type_token const* token) const {
