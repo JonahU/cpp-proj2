@@ -3,36 +3,38 @@
 ## Project overview
 
 This program takes a c++ header file, parses it and outputs corresponding .cpp & .py files.
-I was interested in the topic of briding between higher level languages and c++. The idea is
+I was interested in the topic of bridging between higher level languages and c++. The idea is
 that the programmer defines all their logic within the header file and then uses this utility
-to generate the "glue" between python + c++. The "glue" in this case is boost python. The parser
+to generate the "glue" between python and c++. The "glue" in this case is boost python. The parser
 supports basic aggregate types as well as function declarations. Function definition support has
-also been added although it isn't perfect (see Known bugs for more info). I also added support
-for std::vector and std::map.
+also been added although it isn't perfect (see `Known bugs` section for more info). I also added
+support for std::vector and std::map.
 
 Please see the `examples` folder for some examples of what this program can handle.
 
-### Supported/ not supported
-- basic aggregates support 
-- no class keyword/ constructor/ destructor/ member functions support
+### Supported/ not supported (non exhaustive)
+- basic aggregate support (no class keyword/ constructor/ destructor/ member functions)
 - std::vector, std::map, std::string
-- modifier support: const, pointers, l-value references, unsigned
+- modifiers: const, pointers, l-value references, unsigned
 - a full list of supported keywords/symbols can be found in the tokenizer regexes
 - nested templates, nested structs, default values are not supported
+- function overloading is not supported
+- forward declarations are not supported
 
 ### My testing environment
-- gcc 9.3.0
+- gcc 9.3.0 and c++17
 - python 3.6 (any python3 version should be fine)
 - Note: ctre.hpp wouldn't compile with my version of clang, I haven't tested other compilers
 
 ### Known bugs
 - const-container vs container-const bug, see `examples/extra/const_container_bug.h` for an example
 - container + function definition bug, see `examples/extra/container_func_def_bug.h` for an example
-- name mangling problems in `cpptopy.h` isn't perfect:    
-    - don't use name "string" or end name with unsigned e.g. "mytype_unsigned"
+- name mangling in `cpptopy.h` isn't perfect:    
+    - don't name your struct "string" or end name with unsigned e.g. "mytype_unsigned"
     - see `mangle_modifiers()` for more info
 - inside function definition check in tokenizer implemented in a naive way
     - tokenizer doesn't understand string literals/ comments so adding extra '{' & '}' symbols can be problematic
+- newline at end of header file is required or weird things happen
 
 ### Improvements I would like to make
 - versioned namespaces
@@ -41,9 +43,9 @@ Please see the `examples` folder for some examples of what this program can hand
 
 ### Features that I didn't have time to implement
 - std::tuple (partially implemented but not working properly)
+- nested templates (removed because of complexity)
+- nested structs (removed because of complexity)
 - default values
-- nested templates
-- nested structs
 - comments support (// + /*)
 - --emit-tokens flag
 - --emit-ast flag
@@ -112,7 +114,7 @@ RULES:
         - no function overloading (there isn't overloading in python)
         - no nested template
         - no nested struct
-        - newline required at end of file
+        - newline required at end of header file or weird things happen
         - no extraneous parentheses
         - no operator functions
         - no tuple
